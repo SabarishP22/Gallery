@@ -122,6 +122,7 @@ fun BrightnessVolumeGestureLayer(
             modifier = Modifier
                 .align(if (isLandscape) Alignment.CenterStart else Alignment.CenterStart)
                 .fillMaxHeight()
+                .padding(top = 88.dp, bottom = 100.dp)
                 .width(edgeWidth.coerceAtLeast(96.dp)),
             sweepPx = sweepPx,
             onDragDeltaY = { deltaY, startValue ->
@@ -139,6 +140,7 @@ fun BrightnessVolumeGestureLayer(
             modifier = Modifier
                 .align(if (isLandscape) Alignment.CenterEnd else Alignment.CenterEnd)
                 .fillMaxHeight()
+                .padding(top = 88.dp, bottom = 100.dp)
                 .width(edgeWidth.coerceAtLeast(96.dp)),
             sweepPx = sweepPx,
             onDragDeltaY = { deltaY, startValue ->

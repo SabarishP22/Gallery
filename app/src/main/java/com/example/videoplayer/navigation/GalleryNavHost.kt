@@ -8,6 +8,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -24,6 +25,10 @@ import com.example.videoplayer.ui.wallpaper.WallpaperSetupDialog
 fun GalleryNavHost(viewModel: GalleryViewModel = viewModel()) {
     val state by viewModel.uiState.collectAsState()
     val viewerId = state.viewerMediaId
+
+    BackHandler(enabled = viewerId != null) {
+        viewModel.closeViewer()
+    }
 
     GalleryBackground(
         wallpaperUri = state.wallpaperUri,

@@ -8,6 +8,7 @@ import com.example.videoplayer.data.MediaFilter
 import com.example.videoplayer.data.MediaRepository
 import com.example.videoplayer.data.SortOrder
 import com.example.videoplayer.data.WallpaperPreferences
+import com.example.videoplayer.util.WallpaperLauncherSync
 import com.example.videoplayer.util.mediaMatchesQuery
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -49,6 +50,8 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
 
     private var permissionCheckHandled = false
 
+    private var lastSyncedWallpaperUri: String? = null
+
     init {
         viewModelScope.launch {
             wallpaperPreferences.settings.collect { settings ->
@@ -57,6 +60,10 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
                         wallpaperUri = settings.imageUri,
                         wallpaperBlurDp = settings.blurRadiusDp,
                     )
+                }
+                if (settings.imageUri != lastSyncedWallpaperUri) {
+                    lastSyncedWallpaperUri = settings.imageUri
+                    WallpaperLauncherSync.apply(getApplication(), settings.imageUri)
                 }
             }
         }
@@ -216,10 +223,13 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
 
     fun saveWallpaper(uri: Uri, blurDp: Float) {
         viewModelScope.launch {
-            wallpaperPreferences.save(uri.toString(), blurDp)
+            val uriString = uri.toString()
+            wallpaperPreferences.save(uriString, blurDp)
+            WallpaperLauncherSync.apply(getApplication(), uriString)
+            lastSyncedWallpaperUri = uriString
             _uiState.update {
                 it.copy(
-                    wallpaperUri = uri.toString(),
+                    wallpaperUri = uriString,
                     wallpaperBlurDp = blurDp,
                     wallpaperDialogMedia = null,
                 )
@@ -230,6 +240,8 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
     fun clearWallpaper() {
         viewModelScope.launch {
             wallpaperPreferences.clear()
+            WallpaperLauncherSync.apply(getApplication(), null)
+            lastSyncedWallpaperUri = null
             _uiState.update {
                 it.copy(
                     wallpaperUri = null,

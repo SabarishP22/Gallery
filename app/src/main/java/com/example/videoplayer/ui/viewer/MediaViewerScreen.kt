@@ -59,6 +59,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.zIndex
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
@@ -157,7 +158,8 @@ fun MediaViewerScreen(
             exit = fadeOut(),
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(12.dp),
+                .padding(12.dp)
+                .zIndex(50f),
         ) {
             IconButton(
                 onClick = onBack,
@@ -429,7 +431,9 @@ private fun VideoPage(
             visible = controlsVisible && isActive,
             enter = fadeIn(),
             exit = fadeOut(),
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .zIndex(50f),
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
                 GlassSurface(
