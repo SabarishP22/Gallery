@@ -35,6 +35,7 @@ import com.example.videoplayer.presentation.components.GlassSurface
 import com.example.videoplayer.presentation.components.GlassSurfaceStyle
 import com.example.videoplayer.presentation.theme.AuroraCyan
 import com.example.videoplayer.presentation.theme.DeepSpace
+import com.example.videoplayer.presentation.theme.DialogPanelInset
 import com.example.videoplayer.presentation.theme.TextPrimary
 import com.example.videoplayer.presentation.theme.TextSecondary
 
@@ -128,7 +129,7 @@ fun DeleteConfirmDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(16.dp))
-                        .background(DeepSpace.copy(alpha = 0.5f))
+                        .background(DialogPanelInset)
                         .border(1.dp, AuroraCyan.copy(alpha = 0.15f), RoundedCornerShape(16.dp))
                         .padding(14.dp),
                     verticalAlignment = Alignment.Top,

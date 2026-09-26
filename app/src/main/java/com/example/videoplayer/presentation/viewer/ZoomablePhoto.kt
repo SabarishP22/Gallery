@@ -3,8 +3,12 @@ package com.example.videoplayer.presentation.viewer
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateCentroid
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -20,7 +24,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEvent
+import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
@@ -97,7 +104,7 @@ fun ZoomablePhoto(
         val newScale = (scale * zoomFactor).coerceIn(MIN_ZOOM, MAX_ZOOM)
         val center = Offset(containerSize.width / 2f, containerSize.height / 2f)
         val pinchVector = centroid - center
-        var newOffset = (offset + pinchVector) * (newScale / previousScale) - pinchVector + pan
+        val newOffset = (offset + pinchVector) * (newScale / previousScale) - pinchVector + pan
         scale = newScale
         if (scale <= MIN_ZOOM) {
             scale = MIN_ZOOM
@@ -163,43 +170,63 @@ fun ZoomablePhoto(
                     translationY = displayOffset.y
                 }
                 .pointerInput(media.id, containerSize) {
-                    coroutineScope {
-                        launch {
-                            while (true) {
-                                detectTransformGestures { centroid, pan, zoom, _ ->
-                                    gestureActive = true
-                                    applyPinch(centroid, pan, zoom)
-                                }
-                                gestureActive = false
+                    detectTapGestures(
+                        onTap = { onToggleChrome() },
+                        onDoubleTap = { tapPosition ->
+                            if (scale > ZOOMED_THRESHOLD) {
+                                animateTo(MIN_ZOOM, Offset.Zero)
+                            } else {
+                                val center = Offset(
+                                    containerSize.width / 2f,
+                                    containerSize.height / 2f,
+                                )
+                                val focal = tapPosition - center
+                                val targetScale = DOUBLE_TAP_ZOOM.coerceAtMost(MAX_ZOOM)
+                                val targetOffset = clampOffset(
+                                    focal * (1f - targetScale),
+                                    targetScale,
+                                )
+                                scale = targetScale
+                                offset = targetOffset
+                                animateTo(targetScale, targetOffset)
                             }
-                        }
-                        launch {
-                            detectTapGestures(
-                                onTap = { onToggleChrome() },
-                                onDoubleTap = { tapPosition ->
-                                    if (scale > ZOOMED_THRESHOLD) {
-                                        animateTo(MIN_ZOOM, Offset.Zero)
-                                    } else {
-                                        val center = Offset(
-                                            containerSize.width / 2f,
-                                            containerSize.height / 2f,
-                                        )
-                                        val focal = tapPosition - center
-                                        val targetScale = DOUBLE_TAP_ZOOM.coerceAtMost(MAX_ZOOM)
-                                        val targetOffset = clampOffset(
-                                            focal * (1f - targetScale),
-                                            targetScale,
-                                        )
-                                        scale = targetScale
-                                        offset = targetOffset
-                                        animateTo(targetScale, targetOffset)
-                                    }
-                                },
-                                onLongPress = { onLongPress() },
-                            )
-                        }
+                        },
+                        onLongPress = { onLongPress() },
+                    )
+                }
+                .pointerInput(media.id, scale, containerSize) {
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false)
+                        do {
+                            val event = awaitPointerEvent()
+                            val pressed = event.changes.count { it.pressed }
+                            if (pressed >= 2) {
+                                val zoomChange = event.calculateZoom()
+                                val panChange = event.calculatePan()
+                                val centroid = event.calculateCentroid(useCurrent = false)
+                                event.consumePositionChanges()
+                                gestureActive = true
+                                applyPinch(centroid, panChange, zoomChange)
+                            } else if (scale > ZOOMED_THRESHOLD && pressed == 1) {
+                                val panChange = event.calculatePan()
+                                if (panChange != Offset.Zero) {
+                                    event.consumePositionChanges()
+                                    gestureActive = true
+                                    offset = clampOffset(offset + panChange, scale)
+                                }
+                            }
+                        } while (event.changes.any { it.pressed })
+                        gestureActive = false
                     }
                 },
         )
+    }
+}
+
+private fun PointerEvent.consumePositionChanges() {
+    changes.forEach { change: PointerInputChange ->
+        if (change.positionChanged()) {
+            change.consume()
+        }
     }
 }

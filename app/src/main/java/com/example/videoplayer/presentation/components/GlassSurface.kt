@@ -7,16 +7,18 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.example.videoplayer.presentation.theme.AuroraCyan
+import com.example.videoplayer.presentation.theme.AuroraViolet
+import com.example.videoplayer.presentation.theme.DialogPanelBackground
+import com.example.videoplayer.presentation.theme.DialogPanelBorder
 import com.example.videoplayer.presentation.theme.GlassWhite
-import com.example.videoplayer.presentation.theme.GlassWhiteDialog
 import com.example.videoplayer.presentation.theme.GlassWhiteStrong
-import com.example.videoplayer.presentation.theme.GlassWhiteStrongDialog
 
 enum class GlassSurfaceStyle {
     Default,
-    /** Same glass look as the app, slightly less transparent for modals. */
     Dialog,
 }
 
@@ -28,20 +30,34 @@ fun GlassSurface(
     content: @Composable () -> Unit,
 ) {
     val shape = RoundedCornerShape(cornerRadius)
-    val fill = when (style) {
-        GlassSurfaceStyle.Default -> GlassWhite
-        GlassSurfaceStyle.Dialog -> GlassWhiteDialog
-    }
-    val stroke = when (style) {
-        GlassSurfaceStyle.Default -> GlassWhiteStrong
-        GlassSurfaceStyle.Dialog -> GlassWhiteStrongDialog
-    }
-    Box(
-        modifier = modifier
-            .clip(shape)
-            .background(fill)
-            .border(1.dp, stroke, shape),
-    ) {
-        content()
+    when (style) {
+        GlassSurfaceStyle.Default -> {
+            Box(
+                modifier = modifier
+                    .clip(shape)
+                    .background(GlassWhite)
+                    .border(1.dp, GlassWhiteStrong, shape),
+            ) {
+                content()
+            }
+        }
+        GlassSurfaceStyle.Dialog -> {
+            Box(
+                modifier = modifier
+                    .clip(shape)
+                    .background(DialogPanelBackground)
+                    .background(
+                        Brush.linearGradient(
+                            listOf(
+                                AuroraViolet.copy(alpha = 0.12f),
+                                AuroraCyan.copy(alpha = 0.06f),
+                            ),
+                        ),
+                    )
+                    .border(1.dp, DialogPanelBorder, shape),
+            ) {
+                content()
+            }
+        }
     }
 }

@@ -50,14 +50,15 @@ fun GalleryBackground(
                 .precision(Precision.INEXACT)
                 .memoryCacheKey(cacheKey)
                 .diskCacheKey(cacheKey)
-                .diskCachePolicy(CachePolicy.ENABLED)
-                .memoryCachePolicy(CachePolicy.ENABLED)
-                .crossfade(false)
-                .allowHardware(true)
+                .diskCachePolicy(CachePolicy.DISABLED)
+                .memoryCachePolicy(CachePolicy.DISABLED)
+                .crossfade(280)
+                .allowHardware(false)
                 .build()
         }
     }
 
+    key(wallpaperUri, wallpaperContentVersion, wallpaperBlurDp) {
     Box(modifier = modifier.fillMaxSize()) {
         if (wallpaperRequest != null) {
             key(cacheKey) {
@@ -120,5 +121,6 @@ fun GalleryBackground(
         Box(modifier = Modifier.fillMaxSize()) {
             content()
         }
+    }
     }
 }

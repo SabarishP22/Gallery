@@ -19,4 +19,15 @@ object WallpaperImageCache {
         loader.memoryCache?.remove(MemoryCache.Key(key))
         loader.diskCache?.remove(key)
     }
+
+    @OptIn(ExperimentalCoilApi::class)
+    fun invalidateAllWallpaperEntries(context: Context) {
+        val loader = context.imageLoader
+        val memoryKeys = loader.memoryCache?.keys?.toList().orEmpty()
+        memoryKeys.forEach { memoryKey ->
+            if (memoryKey.key.startsWith("wallpaper-")) {
+                loader.memoryCache?.remove(memoryKey)
+            }
+        }
+    }
 }

@@ -462,6 +462,7 @@ class GalleryViewModel(
                         saved.contentRevision,
                         blurDp,
                     )
+                    WallpaperImageCache.invalidateAllWallpaperEntries(context)
                     lastSyncedWallpaperUri = saved.uri
                     _uiState.update {
                         it.copy(
@@ -495,6 +496,7 @@ class GalleryViewModel(
                 previous.wallpaperContentVersion,
                 previous.wallpaperBlurDp,
             )
+            WallpaperImageCache.invalidateAllWallpaperEntries(appContainer.application)
             lastSyncedWallpaperUri = null
             _uiState.update {
                 it.copy(

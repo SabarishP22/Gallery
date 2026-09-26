@@ -59,6 +59,7 @@ import com.example.videoplayer.presentation.components.GlassSurfaceStyle
 import com.example.videoplayer.presentation.theme.AuroraCyan
 import com.example.videoplayer.presentation.theme.AuroraViolet
 import com.example.videoplayer.presentation.theme.DeepSpace
+import com.example.videoplayer.presentation.theme.DialogPanelInset
 import com.example.videoplayer.presentation.theme.TextPrimary
 import com.example.videoplayer.presentation.theme.TextSecondary
 import com.example.videoplayer.util.formatFileSize
@@ -339,7 +340,7 @@ private fun AnimatedStorageRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(DeepSpace.copy(alpha = 0.4f))
+            .background(DialogPanelInset)
             .padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {

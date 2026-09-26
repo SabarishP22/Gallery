@@ -64,6 +64,8 @@ import com.example.videoplayer.presentation.components.GlassSurfaceStyle
 import com.example.videoplayer.presentation.theme.AuroraCyan
 import com.example.videoplayer.presentation.theme.AuroraViolet
 import com.example.videoplayer.presentation.theme.DeepSpace
+import com.example.videoplayer.presentation.theme.DialogPanelBackground
+import com.example.videoplayer.presentation.theme.DialogPanelBorder
 import com.example.videoplayer.presentation.theme.TextPrimary
 import com.example.videoplayer.presentation.theme.TextSecondary
 import com.example.videoplayer.util.mediaThumbnailRequest
@@ -105,20 +107,18 @@ fun WallpaperSetupDialog(
                 .fillMaxWidth(0.94f)
                 .scale(dialogScale)
                 .clip(RoundedCornerShape(28.dp))
+                .background(DialogPanelBackground)
                 .background(
                     Brush.linearGradient(
                         listOf(
-                            DeepSpace.copy(alpha = 0.97f),
-                            AuroraViolet.copy(alpha = 0.35f),
-                            DeepSpace.copy(alpha = 0.95f),
+                            AuroraViolet.copy(alpha = 0.12f),
+                            AuroraCyan.copy(alpha = 0.06f),
                         ),
                     ),
                 )
                 .border(
                     width = 1.dp,
-                    brush = Brush.linearGradient(
-                        listOf(AuroraCyan.copy(alpha = 0.55f), AuroraViolet.copy(alpha = 0.35f)),
-                    ),
+                    color = DialogPanelBorder,
                     shape = RoundedCornerShape(28.dp),
                 )
                 .padding(20.dp),
