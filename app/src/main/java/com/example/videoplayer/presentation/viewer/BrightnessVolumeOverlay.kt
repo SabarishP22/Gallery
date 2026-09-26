@@ -66,6 +66,10 @@ fun BrightnessVolumeGestureLayer(
     val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
     val maxVolume = remember { audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1) }
 
+    val initialWindowBrightness = remember(activity) {
+        activity?.window?.attributes?.screenBrightness?.takeIf { it >= 0f }
+            ?: WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+    }
     val brightnessHolder = remember {
         mutableFloatStateOf(
             activity?.window?.attributes?.screenBrightness?.takeIf { it in 0.01f..1f } ?: 0.5f,
@@ -86,9 +90,15 @@ fun BrightnessVolumeGestureLayer(
     var hideVolumeJob by remember { mutableStateOf<Job?>(null) }
 
     DisposableEffect(activity) {
-        activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        val window = activity?.window
+        window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         onDispose {
-            activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            window?.let { w ->
+                val attrs = w.attributes
+                attrs.screenBrightness = initialWindowBrightness
+                w.attributes = attrs
+            }
         }
     }
 

@@ -227,6 +227,7 @@ fun GalleryScreen(
             selected = state.filter,
             pagerPosition = pagerPosition,
             onSelected = { filter ->
+                viewModel.setFilter(filter)
                 scope.launch {
                     filterPagerState.animateScrollToPage(
                         page = tabFilters.indexOf(filter).coerceAtLeast(0),

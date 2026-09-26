@@ -3,9 +3,6 @@ package com.example.videoplayer.presentation.viewer
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.annotation.OptIn
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -158,10 +155,8 @@ fun VideoPlayerScreen(
             update = { it.player = player },
         )
 
-        AnimatedVisibility(
+        AnimatedVideoChrome(
             visible = controlsVisible,
-            enter = fadeIn(),
-            exit = fadeOut(),
             modifier = Modifier.fillMaxSize(),
         ) {
             Column(modifier = Modifier.fillMaxSize()) {

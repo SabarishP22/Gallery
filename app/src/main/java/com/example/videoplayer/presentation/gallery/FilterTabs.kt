@@ -65,7 +65,6 @@ fun FilterTabs(
     }
     var tabWidthPx by remember { mutableIntStateOf(0) }
     val density = LocalDensity.current
-    val highlightIndex = pagerPosition.roundToInt().coerceIn(0, tabs.lastIndex)
     val indicatorOffsetPx = (pagerPosition * tabWidthPx).roundToInt()
 
     GlassSurface(
@@ -99,8 +98,8 @@ fun FilterTabs(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly,
             ) {
-                tabs.forEachIndexed { index, spec ->
-                    val isHighlighted = index == highlightIndex || spec.filter == selected
+                tabs.forEach { spec ->
+                    val isHighlighted = spec.filter == selected
                     val labelColor = if (isHighlighted) TextPrimary else TextSecondary
                     val iconTint = if (isHighlighted) AuroraCyan else TextSecondary.copy(alpha = 0.85f)
                     Box(

@@ -404,23 +404,27 @@ private fun VideoPage(
             }
         }
 
-        AnimatedVisibility(
-            visible = controlsVisible && isActive,
-            enter = fadeIn(androidx.compose.animation.core.tween(80)),
-            exit = fadeOut(androidx.compose.animation.core.tween(80)),
-            modifier = Modifier.zIndex(480f),
-        ) {
-            Box(modifier = Modifier.fillMaxSize()) {
+        val showChrome = controlsVisible && isActive
+        Box(modifier = Modifier.fillMaxSize().zIndex(480f)) {
+            AnimatedVideoChrome(
+                visible = showChrome,
+                modifier = Modifier.fillMaxSize(),
+            ) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(Color.Black.copy(alpha = 0.18f))
                         .videoViewerTapGestures(media.id, toggleControlsRef, seekOnDoubleTapRef),
                 )
+            }
+            AnimatedVideoChrome(
+                visible = showChrome,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth(),
+            ) {
                 GlassSurface(
                     modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .zIndex(50f)
                         .fillMaxWidth()
                         .padding(12.dp),
                     cornerRadius = 16.dp,
@@ -473,14 +477,15 @@ private fun VideoPage(
                         }
                     }
                 }
-
-            Row(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .zIndex(50f),
-                horizontalArrangement = Arrangement.spacedBy(32.dp),
-                verticalAlignment = Alignment.CenterVertically,
+            }
+            AnimatedVideoChrome(
+                visible = showChrome,
+                modifier = Modifier.align(Alignment.Center),
             ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(32.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     IconButton(onClick = {
                         player.seekTo((player.currentPosition - 10_000).coerceAtLeast(0L))
                     }) {
@@ -523,17 +528,21 @@ private fun VideoPage(
                             tint = TextPrimary,
                         )
                     }
+                }
             }
-
-            GlassSurface(
+            AnimatedVideoChrome(
+                visible = showChrome,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .zIndex(50f)
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .padding(12.dp),
-                cornerRadius = 16.dp,
+                    .fillMaxWidth(),
             ) {
+                GlassSurface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(12.dp),
+                    cornerRadius = 16.dp,
+                ) {
                     Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                         val progress = if (durationMs > 0) positionMs.toFloat() / durationMs else 0f
                         Slider(
