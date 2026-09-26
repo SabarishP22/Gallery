@@ -10,9 +10,8 @@ val DeepSpaceElevated = Color(0xFF12121A)
 val DeepSpaceSurface = Color(0xFF1A1A24)
 val GlassWhite = Color(0x14FFFFFF)
 val GlassWhiteStrong = Color(0x28FFFFFF)
-/** Opaque-enough panel for modals over busy gallery imagery. */
-val DialogSurfaceFill = Color(0xF514141E)
-val DialogSurfaceStroke = Color(0x40FFFFFF)
-val DialogSurfaceInset = Color(0xFF1E1E2A)
+/** Modal glass: same frosted style, ~less transparent than [GlassWhite]. */
+val GlassWhiteDialog = Color(0x28FFFFFF)
+val GlassWhiteStrongDialog = Color(0x42FFFFFF)
 val TextPrimary = Color(0xFFF5F5FA)
 val TextSecondary = Color(0xFF9898A8)

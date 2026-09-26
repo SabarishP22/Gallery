@@ -12,7 +12,6 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,11 +56,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -150,7 +146,7 @@ fun MediaViewerScreen(
                     onChromeVisibleChange = { chromeVisible = it },
                 )
             } else {
-                ZoomablePhotoPage(
+                ZoomablePhoto(
                     media = media,
                     onToggleChrome = { chromeVisible = !chromeVisible },
                     onZoomChanged = { zoomed -> if (isActive) photoZoomed = zoomed },
@@ -255,73 +251,6 @@ fun MediaViewerScreen(
                 color = Color.White.copy(alpha = 0.85f),
             )
         }
-    }
-}
-
-@Composable
-private fun ZoomablePhotoPage(
-    media: GalleryMedia,
-    onToggleChrome: () -> Unit,
-    onZoomChanged: (Boolean) -> Unit,
-    onLongPress: () -> Unit,
-) {
-    var scale by remember(media.id) { mutableFloatStateOf(1f) }
-    var offset by remember(media.id) { mutableStateOf(Offset.Zero) }
-    val context = LocalContext.current
-
-    LaunchedEffect(scale) {
-        onZoomChanged(scale > 1.05f)
-    }
-
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center,
-    ) {
-        AsyncImage(
-            model = mediaThumbnailRequest(context, media, pixelSize = 2048),
-            contentDescription = media.displayName,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer {
-                    scaleX = scale
-                    scaleY = scale
-                    translationX = offset.x
-                    translationY = offset.y
-                }
-                .pointerInput(media.id) {
-                    detectTapGestures(
-                        onTap = { onToggleChrome() },
-                        onDoubleTap = {
-                            if (scale > 1f) {
-                                scale = 1f
-                                offset = Offset.Zero
-                            } else {
-                                scale = 2.5f
-                            }
-                        },
-                        onLongPress = { onLongPress() },
-                    )
-                }
-                .then(
-                    if (scale > 1f) {
-                        Modifier.pointerInput(media.id, scale) {
-                            detectTransformGestures { _, pan, zoom, _ ->
-                                if (zoom != 1f) {
-                                    scale = (scale * zoom).coerceIn(1f, 5f)
-                                }
-                                offset += pan
-                                if (scale <= 1f) {
-                                    scale = 1f
-                                    offset = Offset.Zero
-                                }
-                            }
-                        }
-                    } else {
-                        Modifier
-                    },
-                ),
-        )
     }
 }
 

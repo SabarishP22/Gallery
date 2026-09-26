@@ -4,9 +4,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.rememberTransformableState
-import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,22 +21,17 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import com.example.videoplayer.domain.model.GalleryMedia
 import com.example.videoplayer.presentation.components.GlassSurface
 import com.example.videoplayer.presentation.theme.DeepSpace
@@ -47,6 +39,7 @@ import com.example.videoplayer.util.formatFileSize
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 @Composable
 fun PhotoViewerScreen(
@@ -61,16 +54,38 @@ fun PhotoViewerScreen(
     val pagerState = rememberPagerState(initialPage = startIndex.coerceIn(0, images.lastIndex)) { images.size }
     var chromeVisible by remember { mutableStateOf(true) }
     var infoVisible by remember { mutableStateOf(false) }
+    var photoZoomed by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val current = images[pagerState.currentPage]
+
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.currentPage }
+            .distinctUntilChanged()
+            .collect {
+                chromeVisible = true
+                infoVisible = false
+                photoZoomed = false
+            }
+    }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(DeepSpace),
     ) {
-        HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
-            ZoomablePhoto(uri = images[page].uri, onToggleChrome = { chromeVisible = !chromeVisible })
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxSize(),
+            userScrollEnabled = !photoZoomed,
+            key = { page -> images[page].id },
+        ) { page ->
+            val isActive = pagerState.currentPage == page
+            ZoomablePhoto(
+                media = images[page],
+                onToggleChrome = { chromeVisible = !chromeVisible },
+                onZoomChanged = { zoomed -> if (isActive) photoZoomed = zoomed },
+                onLongPress = { },
+            )
         }
 
         AnimatedVisibility(
@@ -149,52 +164,5 @@ fun PhotoViewerScreen(
                 Icon(Icons.Default.Share, contentDescription = "Share", tint = Color.White)
             }
         }
-    }
-}
-
-@Composable
-private fun ZoomablePhoto(
-    uri: android.net.Uri,
-    onToggleChrome: () -> Unit,
-) {
-    var scale by remember { mutableFloatStateOf(1f) }
-    var offset by remember { mutableStateOf(Offset.Zero) }
-    val state = rememberTransformableState { zoomChange, panChange, _ ->
-        scale = (scale * zoomChange).coerceIn(1f, 5f)
-        offset = if (scale > 1f) offset + panChange else Offset.Zero
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onTap = { onToggleChrome() },
-                    onDoubleTap = {
-                        if (scale > 1f) {
-                            scale = 1f
-                            offset = Offset.Zero
-                        } else {
-                            scale = 2.5f
-                        }
-                    },
-                )
-            }
-            .transformable(state = state),
-        contentAlignment = Alignment.Center,
-    ) {
-        AsyncImage(
-            model = ImageRequest.Builder(LocalContext.current).data(uri).crossfade(250).build(),
-            contentDescription = null,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer {
-                    scaleX = scale
-                    scaleY = scale
-                    translationX = offset.x
-                    translationY = offset.y
-                },
-        )
     }
 }
