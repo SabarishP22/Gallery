@@ -23,6 +23,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import kotlinx.coroutines.CoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -49,11 +50,22 @@ fun MediaGrid(
     selectionMode: Boolean,
     onClick: (GalleryMedia) -> Unit,
     onLongClick: (GalleryMedia) -> Unit,
+    swipeSelectScope: CoroutineScope,
+    onSwipeSelectMedia: (Long, Boolean) -> Unit,
+    onSwipeSelectFinished: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyVerticalGrid(
         state = gridState,
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier
+            .fillMaxSize()
+            .gridSwipeSelection(
+                enabled = selectionMode,
+                gridState = gridState,
+                scope = swipeSelectScope,
+                onMediaAtPosition = onSwipeSelectMedia,
+                onDragFinished = onSwipeSelectFinished,
+            ),
         columns = GridCells.Fixed(columns),
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -153,6 +165,13 @@ private fun MediaGridItem(
             )
         }
         if (selectionMode) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        if (selected) AuroraCyan.copy(alpha = 0.28f) else Color.Black.copy(alpha = 0.12f),
+                    ),
+            )
             Icon(
                 imageVector = Icons.Default.CheckCircle,
                 contentDescription = null,

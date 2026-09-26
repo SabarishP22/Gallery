@@ -19,6 +19,7 @@ import com.example.videoplayer.domain.usecase.MigrateWallpaperUseCase
 import com.example.videoplayer.domain.usecase.ObserveWallpaperSettingsUseCase
 import com.example.videoplayer.domain.usecase.SaveWallpaperUseCase
 import com.example.videoplayer.domain.usecase.SyncWallpaperLauncherUseCase
+import com.example.videoplayer.domain.usecase.TrashMediaUseCase
 
 class AppContainer(application: Application) {
 
@@ -38,6 +39,7 @@ class AppContainer(application: Application) {
     val syncWallpaperLauncherUseCase = SyncWallpaperLauncherUseCase(launcherIconRepository)
 
     val loadGalleryMediaUseCase = LoadGalleryMediaUseCase(mediaRepository)
+    val trashMediaUseCase = TrashMediaUseCase(mediaRepository)
     val observeWallpaperSettingsUseCase = ObserveWallpaperSettingsUseCase(wallpaperRepository)
     val migrateWallpaperUseCase = MigrateWallpaperUseCase(wallpaperRepository)
     val saveWallpaperUseCase = SaveWallpaperUseCase(wallpaperRepository, syncWallpaperLauncherUseCase)

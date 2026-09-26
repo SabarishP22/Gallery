@@ -7,7 +7,9 @@ import com.example.videoplayer.di.AppContainer
 import com.example.videoplayer.domain.model.GalleryMedia
 import com.example.videoplayer.domain.model.MediaFilter
 import com.example.videoplayer.domain.model.SortOrder
+import com.example.videoplayer.domain.model.TrashDeleteRequest
 import com.example.videoplayer.domain.usecase.FilterAndSortMediaUseCase
+import com.example.videoplayer.domain.usecase.TrashMediaUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -28,8 +30,12 @@ class GalleryViewModel(
     private val saveWallpaperUseCase = appContainer.saveWallpaperUseCase
     private val clearWallpaperUseCase = appContainer.clearWallpaperUseCase
     private val getViewerPagerMediaUseCase = appContainer.getViewerPagerMediaUseCase
+    private val trashMediaUseCase: TrashMediaUseCase = appContainer.trashMediaUseCase
     private val filterAndSortMediaUseCase: FilterAndSortMediaUseCase =
         appContainer.filterAndSortMediaUseCase()
+
+    private var swipeSelectAdding: Boolean? = null
+    private val swipeVisitedIds = mutableSetOf<Long>()
 
     private val _uiState = MutableStateFlow(GalleryUiState())
     val uiState: StateFlow<GalleryUiState> = _uiState.asStateFlow()
@@ -255,8 +261,114 @@ class GalleryViewModel(
         }
     }
 
+    fun beginSelection(id: Long) {
+        _uiState.update { state ->
+            val selected = state.selectedIds.toMutableSet()
+            selected.add(id)
+            state.copy(
+                selectedIds = selected,
+                selectionMode = true,
+            )
+        }
+    }
+
+    fun onSwipeSelectMedia(id: Long, isStart: Boolean) {
+        if (!_uiState.value.selectionMode) return
+        if (isStart) {
+            swipeSelectAdding = id !in _uiState.value.selectedIds
+            swipeVisitedIds.clear()
+        }
+        if (id in swipeVisitedIds) return
+        swipeVisitedIds.add(id)
+        val adding = swipeSelectAdding ?: return
+        _uiState.update { state ->
+            val selected = state.selectedIds.toMutableSet()
+            if (adding) selected.add(id) else selected.remove(id)
+            state.copy(
+                selectedIds = selected,
+                selectionMode = selected.isNotEmpty(),
+            )
+        }
+    }
+
+    fun onSwipeSelectFinished() {
+        swipeSelectAdding = null
+        swipeVisitedIds.clear()
+    }
+
     fun clearSelection() {
+        onSwipeSelectFinished()
         _uiState.update { it.copy(selectionMode = false, selectedIds = emptySet()) }
+    }
+
+    fun openDeleteConfirm() {
+        if (_uiState.value.selectedIds.isEmpty()) return
+        _uiState.update { it.copy(showDeleteConfirmDialog = true) }
+    }
+
+    fun dismissDeleteConfirm() {
+        _uiState.update { it.copy(showDeleteConfirmDialog = false) }
+    }
+
+    fun confirmMoveToTrash() {
+        viewModelScope.launch {
+            val state = _uiState.value
+            val uris = state.allMedia.filter { it.id in state.selectedIds }.map { it.uri }
+            if (uris.isEmpty()) {
+                dismissDeleteConfirm()
+                return@launch
+            }
+            trashMediaUseCase(uris)
+                .onSuccess { request ->
+                    when (request) {
+                        is TrashDeleteRequest.SystemConfirmation -> {
+                            _uiState.update {
+                                it.copy(
+                                    showDeleteConfirmDialog = false,
+                                    pendingTrashIntentSender = request.intentSender,
+                                )
+                            }
+                        }
+                        TrashDeleteRequest.Completed -> {
+                            finishTrashDelete()
+                        }
+                    }
+                }
+                .onFailure {
+                    _uiState.update {
+                        it.copy(
+                            showDeleteConfirmDialog = false,
+                            errorMessage = "Could not move items to trash.",
+                        )
+                    }
+                }
+        }
+    }
+
+    fun onSystemTrashResult(confirmed: Boolean) {
+        _uiState.update { it.copy(pendingTrashIntentSender = null) }
+        if (confirmed) {
+            finishTrashDelete()
+        }
+    }
+
+    fun clearPendingTrashIntent() {
+        _uiState.update { it.copy(pendingTrashIntentSender = null) }
+    }
+
+    private fun finishTrashDelete() {
+        val deletedIds = _uiState.value.selectedIds
+        _uiState.update { state ->
+            state.copy(
+                selectedIds = emptySet(),
+                selectionMode = false,
+                showDeleteConfirmDialog = false,
+                viewerMediaId = state.viewerMediaId?.takeUnless { it in deletedIds },
+                activeMediaId = state.activeMediaId?.takeUnless { it in deletedIds },
+            )
+        }
+        onSwipeSelectFinished()
+        loadMedia(showFullScreenLoading = false)
     }
 
     fun openWallpaperDialog(media: GalleryMedia) {

@@ -3,6 +3,7 @@ package com.example.videoplayer.data.source
 import android.content.ContentUris
 import android.content.Context
 import android.net.Uri
+import android.os.Build
 import android.provider.MediaStore
 import com.example.videoplayer.domain.model.GalleryMedia
 
@@ -34,12 +35,22 @@ class MediaStoreDataSource(
             MediaStore.Video.Media.DURATION,
         )
 
+        val selection: String?
+        val selectionArgs: Array<String>?
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            selection = "${MediaStore.MediaColumns.IS_TRASHED} = ?"
+            selectionArgs = arrayOf("0")
+        } else {
+            selection = null
+            selectionArgs = null
+        }
+
         val items = mutableListOf<GalleryMedia>()
         context.contentResolver.query(
             collection,
             projection,
-            null,
-            null,
+            selection,
+            selectionArgs,
             "${MediaStore.MediaColumns.DATE_ADDED} DESC",
         )?.use { cursor ->
             val idCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
@@ -68,5 +79,23 @@ class MediaStoreDataSource(
             }
         }
         return items
+    }
+
+    fun moveToTrash(uris: List<Uri>): Result<Unit> {
+        if (uris.isEmpty()) return Result.success(Unit)
+        return runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                error("Use createTrashRequest on API 30+")
+            } else {
+                uris.forEach { uri ->
+                    context.contentResolver.delete(uri, null, null)
+                }
+            }
+        }
+    }
+
+    fun createTrashPendingIntent(uris: List<Uri>): android.app.PendingIntent? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R || uris.isEmpty()) return null
+        return MediaStore.createTrashRequest(context.contentResolver, uris, true)
     }
 }

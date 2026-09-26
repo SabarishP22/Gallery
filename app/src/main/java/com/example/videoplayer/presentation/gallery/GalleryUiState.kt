@@ -1,5 +1,6 @@
 package com.example.videoplayer.presentation.gallery
 
+import android.content.IntentSender
 import com.example.videoplayer.domain.model.GalleryMedia
 import com.example.videoplayer.domain.model.MediaFilter
 import com.example.videoplayer.domain.model.SortOrder
@@ -31,6 +32,8 @@ data class GalleryUiState(
     val wallpaperUri: String? = null,
     val wallpaperBlurDp: Float = 18f,
     val wallpaperDialogMedia: GalleryMedia? = null,
+    val showDeleteConfirmDialog: Boolean = false,
+    val pendingTrashIntentSender: IntentSender? = null,
 ) {
     fun gridRowsFor(filter: MediaFilter): List<GalleryGridRow> = when (filter) {
         MediaFilter.ALL -> gridRowsAll

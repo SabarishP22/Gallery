@@ -1,9 +1,12 @@
 package com.example.videoplayer.presentation.gallery
 
 import android.Manifest
+import android.app.Activity
 import android.content.Intent
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,6 +24,7 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -102,6 +106,29 @@ fun GalleryScreen(
     var showSearch by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
+    BackHandler(enabled = state.selectionMode) {
+        viewModel.clearSelection()
+    }
+
+    val trashLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult(),
+    ) { result ->
+        viewModel.onSystemTrashResult(result.resultCode == Activity.RESULT_OK)
+    }
+
+    LaunchedEffect(state.pendingTrashIntentSender) {
+        val sender = state.pendingTrashIntentSender ?: return@LaunchedEffect
+        trashLauncher.launch(IntentSenderRequest.Builder(sender).build())
+    }
+
+    if (state.showDeleteConfirmDialog) {
+        DeleteConfirmDialog(
+            itemCount = state.selectedIds.size,
+            onDismiss = viewModel::dismissDeleteConfirm,
+            onConfirm = viewModel::confirmMoveToTrash,
+        )
+    }
+
     val permissions = remember {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO)
@@ -151,6 +178,7 @@ fun GalleryScreen(
             onToggleGrid = viewModel::toggleGridColumns,
             onSortSelected = viewModel::setSortOrder,
             onClearSelection = viewModel::clearSelection,
+            onDeleteSelection = viewModel::openDeleteConfirm,
             onShareSelection = {
                 shareMedia(context, state.allMedia.filter { it.id in state.selectedIds })
             },
@@ -204,6 +232,7 @@ fun GalleryScreen(
                         state = filterPagerState,
                         modifier = Modifier.fillMaxSize(),
                         beyondViewportPageCount = 1,
+                        userScrollEnabled = !state.selectionMode,
                         flingBehavior = PagerDefaults.flingBehavior(state = filterPagerState),
                         key = { page -> tabFilters[page].name },
                     ) { page ->
@@ -238,6 +267,9 @@ fun GalleryScreen(
                                 gridState = pageGridState,
                                 selectedIds = state.selectedIds,
                                 selectionMode = state.selectionMode,
+                                swipeSelectScope = scope,
+                                onSwipeSelectMedia = viewModel::onSwipeSelectMedia,
+                                onSwipeSelectFinished = viewModel::onSwipeSelectFinished,
                                 onClick = { item ->
                                     if (state.selectionMode) {
                                         viewModel.toggleSelection(item.id)
@@ -250,11 +282,7 @@ fun GalleryScreen(
                                     }
                                 },
                                 onLongClick = { item ->
-                                    if (item.isVideo) {
-                                        viewModel.toggleSelection(item.id)
-                                    } else {
-                                        viewModel.openWallpaperDialog(item)
-                                    }
+                                    viewModel.beginSelection(item.id)
                                 },
                             )
                         }
@@ -316,6 +344,7 @@ private fun GalleryTopBar(
     onToggleGrid: () -> Unit,
     onSortSelected: (SortOrder) -> Unit,
     onClearSelection: () -> Unit,
+    onDeleteSelection: () -> Unit,
     onShareSelection: () -> Unit,
 ) {
     var showSortMenu by remember { mutableStateOf(false) }
@@ -343,11 +372,18 @@ private fun GalleryTopBar(
                 }
             }
             if (selectionMode) {
+                IconButton(onClick = onDeleteSelection) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = "Move to trash",
+                        tint = Color(0xFFFF5252),
+                    )
+                }
                 IconButton(onClick = onShareSelection) {
                     Icon(Icons.Default.Share, contentDescription = "Share")
                 }
                 IconButton(onClick = onClearSelection) {
-                    Icon(Icons.Default.Close, contentDescription = "Close")
+                    Icon(Icons.Default.Close, contentDescription = "Close selection")
                 }
             } else {
                 IconButton(
