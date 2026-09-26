@@ -22,8 +22,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -51,7 +53,6 @@ private data class FilterTabSpec(
 
 @Composable
 fun FilterTabs(
-    selected: MediaFilter,
     pagerPosition: Float,
     onSelected: (MediaFilter) -> Unit,
     modifier: Modifier = Modifier,
@@ -64,8 +65,21 @@ fun FilterTabs(
         )
     }
     var tabWidthPx by remember { mutableIntStateOf(0) }
+    var tapHighlightFilter by remember { mutableStateOf<MediaFilter?>(null) }
     val density = LocalDensity.current
     val indicatorOffsetPx = (pagerPosition * tabWidthPx).roundToInt()
+    val pagerHighlightFilter = tabs[
+        (pagerPosition + 0.5f).roundToInt().coerceIn(0, tabs.lastIndex)
+    ].filter
+    val activeFilter = tapHighlightFilter ?: pagerHighlightFilter
+
+    LaunchedEffect(pagerPosition, tapHighlightFilter) {
+        val pending = tapHighlightFilter ?: return@LaunchedEffect
+        val targetIndex = tabs.indexOfFirst { it.filter == pending }
+        if (targetIndex >= 0 && kotlin.math.abs(pagerPosition - targetIndex) < 0.02f) {
+            tapHighlightFilter = null
+        }
+    }
 
     GlassSurface(
         modifier = modifier.fillMaxWidth(),
@@ -99,7 +113,7 @@ fun FilterTabs(
                 horizontalArrangement = Arrangement.SpaceEvenly,
             ) {
                 tabs.forEach { spec ->
-                    val isHighlighted = spec.filter == selected
+                    val isHighlighted = spec.filter == activeFilter
                     val labelColor = if (isHighlighted) TextPrimary else TextSecondary
                     val iconTint = if (isHighlighted) AuroraCyan else TextSecondary.copy(alpha = 0.85f)
                     Box(
@@ -113,7 +127,10 @@ fun FilterTabs(
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null,
-                            ) { onSelected(spec.filter) },
+                            ) {
+                                tapHighlightFilter = spec.filter
+                                onSelected(spec.filter)
+                            },
                         contentAlignment = Alignment.Center,
                     ) {
                         Row(
