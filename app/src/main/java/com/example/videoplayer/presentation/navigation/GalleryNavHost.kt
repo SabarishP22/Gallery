@@ -67,8 +67,11 @@ fun GalleryNavHost(
         WallpaperSetupDialog(
             media = media,
             initialBlurDp = state.wallpaperBlurDp,
+            initialUsePhotoAppIcon = state.wallpaperUsePhotoAppIcon,
             onDismiss = viewModel::closeWallpaperDialog,
-            onSave = { blur -> viewModel.saveWallpaper(media.uri, blur) },
+            onSave = { blur, usePhotoIcon ->
+                viewModel.saveWallpaper(media.uri, blur, usePhotoIcon)
+            },
             onClear = viewModel::clearWallpaper,
         )
     }

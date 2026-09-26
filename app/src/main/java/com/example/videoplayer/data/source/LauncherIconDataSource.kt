@@ -9,7 +9,7 @@ class LauncherIconDataSource(
     private val context: Context,
 ) {
 
-    suspend fun syncForWallpaper(wallpaperUri: String?) = withContext(Dispatchers.IO) {
-        WallpaperLauncherSync.apply(context, wallpaperUri)
+    suspend fun syncForWallpaper(wallpaperUri: String?, usePhotoAppIcon: Boolean) = withContext(Dispatchers.IO) {
+        WallpaperLauncherSync.apply(context, wallpaperUri, usePhotoAppIcon)
     }
 }

@@ -35,6 +35,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -72,11 +74,13 @@ import kotlinx.coroutines.delay
 fun WallpaperSetupDialog(
     media: GalleryMedia,
     initialBlurDp: Float,
+    initialUsePhotoAppIcon: Boolean,
     onDismiss: () -> Unit,
-    onSave: (blurDp: Float) -> Unit,
+    onSave: (blurDp: Float, usePhotoAppIcon: Boolean) -> Unit,
     onClear: () -> Unit,
 ) {
     var blurDp by remember(media.id) { mutableFloatStateOf(initialBlurDp.coerceIn(0f, 40f)) }
+    var usePhotoAppIcon by remember(media.id) { mutableStateOf(initialUsePhotoAppIcon) }
     var entered by remember(media.id) { mutableStateOf(false) }
     val context = LocalContext.current
 
@@ -239,10 +243,38 @@ fun WallpaperSetupDialog(
                                 inactiveTrackColor = TextSecondary.copy(alpha = 0.35f),
                             ),
                         )
-                        Text(
-                            text = "Icon tint updates to match your wallpaper colors.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = TextSecondary,
+                    }
+                }
+
+                GlassSurface(modifier = Modifier.fillMaxWidth(), cornerRadius = 18.dp) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                            Text(
+                                text = "Use image as app icon",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = TextPrimary,
+                            )
+                            Text(
+                                text = "Shows this photo on your home screen. Off keeps the default Aura icon.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextSecondary,
+                            )
+                        }
+                        Switch(
+                            checked = usePhotoAppIcon,
+                            onCheckedChange = { usePhotoAppIcon = it },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = DeepSpace,
+                                checkedTrackColor = AuroraCyan,
+                                uncheckedThumbColor = TextPrimary,
+                                uncheckedTrackColor = TextSecondary.copy(alpha = 0.35f),
+                            ),
                         )
                     }
                 }
@@ -263,7 +295,7 @@ fun WallpaperSetupDialog(
                         Text("Reset", modifier = Modifier.padding(start = 6.dp))
                     }
                     Button(
-                        onClick = { onSave(blurDp) },
+                        onClick = { onSave(blurDp, usePhotoAppIcon) },
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = AuroraCyan,

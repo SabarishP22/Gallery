@@ -20,6 +20,7 @@ object LauncherIconManager {
     )
 
     private const val DEFAULT_ALIAS = "com.example.videoplayer.launcher.Default"
+    private const val WALLPAPER_PHOTO_ALIAS = "com.example.videoplayer.launcher.WallpaperPhoto"
     private val bucketAliases = Array(10) { index ->
         "com.example.videoplayer.launcher.Bucket$index"
     }
@@ -27,6 +28,15 @@ object LauncherIconManager {
     fun applyDefault(context: Context) {
         runCatching {
             setEnabled(context, DEFAULT_ALIAS, true)
+            setEnabled(context, WALLPAPER_PHOTO_ALIAS, false)
+            bucketAliases.forEach { setEnabled(context, it, false) }
+        }
+    }
+
+    fun applyWallpaperPhoto(context: Context) {
+        runCatching {
+            setEnabled(context, WALLPAPER_PHOTO_ALIAS, true)
+            setEnabled(context, DEFAULT_ALIAS, false)
             bucketAliases.forEach { setEnabled(context, it, false) }
         }
     }
@@ -36,6 +46,7 @@ object LauncherIconManager {
         runCatching {
             setEnabled(context, bucketAliases[index], true)
             setEnabled(context, DEFAULT_ALIAS, false)
+            setEnabled(context, WALLPAPER_PHOTO_ALIAS, false)
             bucketAliases.forEachIndexed { i, alias ->
                 if (i != index) setEnabled(context, alias, false)
             }

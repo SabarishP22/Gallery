@@ -141,10 +141,10 @@ fun GalleryScreen(
         GalleryTopBar(
             selectionMode = state.selectionMode,
             selectedCount = state.selectedIds.size,
-            showSearch = showSearch,
             searchQuery = state.searchQuery,
             sortOrder = state.sortOrder,
-            onToggleSearch = { showSearch = !showSearch },
+            onOpenSearch = { showSearch = true },
+            searchActive = showSearch,
             onSearchChange = viewModel::setSearchQuery,
             isRefreshing = state.isRefreshing,
             onRefresh = viewModel::refreshMedia,
@@ -154,6 +154,13 @@ fun GalleryScreen(
             onShareSelection = {
                 shareMedia(context, state.allMedia.filter { it.id in state.selectedIds })
             },
+        )
+
+        GallerySearchBar(
+            visible = showSearch,
+            query = state.searchQuery,
+            onQueryChange = viewModel::setSearchQuery,
+            onClose = { showSearch = false },
         )
 
         FilterTabs(
@@ -299,11 +306,11 @@ fun GalleryScreen(
 private fun GalleryTopBar(
     selectionMode: Boolean,
     selectedCount: Int,
-    showSearch: Boolean,
+    searchActive: Boolean,
     searchQuery: String,
     sortOrder: SortOrder,
     isRefreshing: Boolean,
-    onToggleSearch: () -> Unit,
+    onOpenSearch: () -> Unit,
     onSearchChange: (String) -> Unit,
     onRefresh: () -> Unit,
     onToggleGrid: () -> Unit,
@@ -369,8 +376,15 @@ private fun GalleryTopBar(
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onClick = onToggleSearch, colors = AuraIconDefaults.iconButtonColors()) {
-                    Icon(Icons.Default.Search, contentDescription = "Search", tint = TextPrimary)
+                IconButton(
+                    onClick = onOpenSearch,
+                    colors = AuraIconDefaults.iconButtonColors(),
+                ) {
+                    Icon(
+                        Icons.Default.Search,
+                        contentDescription = "Search",
+                        tint = if (searchActive || searchQuery.isNotEmpty()) AuroraCyan else TextPrimary,
+                    )
                 }
                 Box {
                     IconButton(onClick = { showSortMenu = true }, colors = AuraIconDefaults.iconButtonColors()) {
@@ -400,23 +414,6 @@ private fun GalleryTopBar(
                     Icon(Icons.Default.GridView, contentDescription = "Grid size", tint = TextPrimary)
                 }
             }
-        }
-        if (showSearch) {
-            TextField(
-                value = searchQuery,
-                onValueChange = onSearchChange,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                placeholder = { Text("Name, date, month, year…") },
-                singleLine = true,
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = DeepSpaceElevated,
-                    unfocusedContainerColor = DeepSpaceElevated,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent,
-                ),
-            )
         }
     }
 }

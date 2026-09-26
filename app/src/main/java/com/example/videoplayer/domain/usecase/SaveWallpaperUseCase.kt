@@ -7,12 +7,16 @@ class SaveWallpaperUseCase(
     private val wallpaperRepository: WallpaperRepository,
     private val syncWallpaperLauncherUseCase: SyncWallpaperLauncherUseCase,
 ) {
-    suspend operator fun invoke(sourceUri: Uri, blurRadiusDp: Float): Result<String> {
+    suspend operator fun invoke(
+        sourceUri: Uri,
+        blurRadiusDp: Float,
+        usePhotoAppIcon: Boolean,
+    ): Result<String> {
         val persistedUri = wallpaperRepository.persistFromSourceUri(sourceUri).getOrElse {
             return Result.failure(it)
         }
-        wallpaperRepository.save(persistedUri, blurRadiusDp)
-        syncWallpaperLauncherUseCase(persistedUri)
+        wallpaperRepository.save(persistedUri, blurRadiusDp, usePhotoAppIcon)
+        syncWallpaperLauncherUseCase(persistedUri, usePhotoAppIcon)
         return Result.success(persistedUri)
     }
 }

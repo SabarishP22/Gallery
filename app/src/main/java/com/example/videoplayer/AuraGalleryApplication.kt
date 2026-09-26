@@ -9,6 +9,7 @@ import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import coil.request.CachePolicy
 import com.example.videoplayer.di.AppContainer
+import com.example.videoplayer.util.WallpaperAppIconCache
 
 class AuraGalleryApplication : Application(), ImageLoaderFactory {
 
@@ -18,6 +19,7 @@ class AuraGalleryApplication : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
         appContainer = AppContainer(this)
+        WallpaperAppIconCache.loadFromDisk(this)
     }
 
     override fun newImageLoader(): ImageLoader {

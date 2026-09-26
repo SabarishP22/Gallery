@@ -15,8 +15,8 @@ class WallpaperRepositoryImpl(
 
     override val settings: Flow<WallpaperSettings> = preferencesDataSource.settings
 
-    override suspend fun save(imageUri: String, blurRadiusDp: Float) {
-        preferencesDataSource.save(imageUri, blurRadiusDp)
+    override suspend fun save(imageUri: String, blurRadiusDp: Float, usePhotoAppIcon: Boolean) {
+        preferencesDataSource.save(imageUri, blurRadiusDp, usePhotoAppIcon)
     }
 
     override suspend fun clear() {
@@ -38,7 +38,7 @@ class WallpaperRepositoryImpl(
         val stored = fileStorage.storedFileUri()
         if (stored != null) {
             if (settings.imageUri != stored) {
-                preferencesDataSource.save(stored, settings.blurRadiusDp)
+                preferencesDataSource.save(stored, settings.blurRadiusDp, settings.usePhotoAppIcon)
             }
             return
         }
@@ -46,7 +46,7 @@ class WallpaperRepositoryImpl(
         if (legacy.startsWith("file://")) return
         runCatching {
             val persisted = fileStorage.persistFromSourceUri(Uri.parse(legacy))
-            preferencesDataSource.save(persisted, settings.blurRadiusDp)
+            preferencesDataSource.save(persisted, settings.blurRadiusDp, settings.usePhotoAppIcon)
         }.onFailure {
             preferencesDataSource.clear()
             fileStorage.deleteStoredWallpaper()

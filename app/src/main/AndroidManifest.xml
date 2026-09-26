@@ -191,6 +191,21 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.WallpaperPhoto"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_wallpaper_photo"
+            android:label="@string/app_name"
+            android:roundIcon="@mipmap/ic_launcher_wallpaper_photo"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
     </application>
 
 </manifest>

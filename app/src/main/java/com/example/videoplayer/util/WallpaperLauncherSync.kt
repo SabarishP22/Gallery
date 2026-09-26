@@ -7,16 +7,28 @@ import kotlinx.coroutines.withContext
 
 object WallpaperLauncherSync {
 
-    suspend fun apply(context: Context, wallpaperUri: String?) = withContext(Dispatchers.IO) {
+    suspend fun apply(
+        context: Context,
+        wallpaperUri: String?,
+        usePhotoAppIcon: Boolean = false,
+    ) = withContext(Dispatchers.IO) {
         runCatching {
             if (wallpaperUri.isNullOrBlank()) {
+                WallpaperAppIconRenderer.deleteIconFile(context)
+                WallpaperAppIconCache.clear()
                 LauncherIconManager.applyDefault(context)
                 WallpaperShortcutHelper.clear(context)
                 return@withContext
             }
             val uri = Uri.parse(wallpaperUri)
-            val accent = extractWallpaperAccentColor(context, uri)
-            LauncherIconManager.applyColor(context, accent)
+            if (usePhotoAppIcon) {
+                WallpaperAppIconRenderer.renderAndSave(context, uri)
+                WallpaperAppIconCache.loadFromDisk(context)
+                LauncherIconManager.applyWallpaperPhoto(context)
+            } else {
+                val accent = extractWallpaperAccentColor(context, uri)
+                LauncherIconManager.applyColor(context, accent)
+            }
             WallpaperShortcutHelper.updateFromWallpaper(context, uri)
         }
     }

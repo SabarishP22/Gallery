@@ -7,7 +7,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -52,6 +51,8 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.State
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -70,7 +71,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
-import androidx.media3.ui.PlayerView
+import com.example.videoplayer.util.NonTouchPlayerView
 import coil.compose.AsyncImage
 import com.example.videoplayer.domain.model.GalleryMedia
 import com.example.videoplayer.presentation.components.GlassSurface
@@ -82,8 +83,8 @@ import com.example.videoplayer.util.formatDuration
 import com.example.videoplayer.util.formatFileSize
 import com.example.videoplayer.util.mediaThumbnailRequest
 import android.app.Activity
-import android.os.SystemClock
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.distinctUntilChanged
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -332,6 +333,7 @@ private fun VideoPage(
     var speedMenuExpanded by remember { mutableStateOf(false) }
     var isScrubbing by remember { mutableStateOf(false) }
     var scrubPosition by remember { mutableFloatStateOf(0f) }
+    var seekFlashSide by remember(media.id) { mutableStateOf<SeekFlashSide?>(null) }
 
     val player = remember(media.id) {
         ExoPlayer.Builder(context).build().apply {
@@ -397,10 +399,35 @@ private fun VideoPage(
         onChromeVisibleChange(controlsVisible)
     }
 
+    LaunchedEffect(seekFlashSide) {
+        if (seekFlashSide != null) {
+            delay(650)
+            seekFlashSide = null
+        }
+    }
+
+    val toggleControlsRef = rememberUpdatedState { toggleControls() }
+    val seekOnDoubleTapRef = rememberUpdatedState { tapX: Float, width: Float ->
+        val midpoint = width / 2f
+        if (tapX < midpoint) {
+            player.seekTo((player.currentPosition - 10_000).coerceAtLeast(0L))
+            seekFlashSide = SeekFlashSide.BACK
+        } else {
+            player.seekTo(
+                (player.currentPosition + 10_000).coerceAtMost(
+                    if (player.duration > 0) player.duration else Long.MAX_VALUE,
+                ),
+            )
+            seekFlashSide = SeekFlashSide.FORWARD
+        }
+        controlsVisible = true
+        onChromeVisibleChange(true)
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         AndroidView(
             factory = { ctx ->
-                PlayerView(ctx).apply {
+                NonTouchPlayerView(ctx).apply {
                     layoutParams = FrameLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT,
@@ -414,57 +441,53 @@ private fun VideoPage(
             update = { it.player = if (isActive) player else null },
         )
 
-        if (isActive) {
-            var lastQuickTapUptime by remember(media.id) { mutableLongStateOf(0L) }
+        if (isActive && !controlsVisible) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .zIndex(45f)
-                    .pointerInput(media.id) {
-                        awaitEachGesture {
-                            awaitFirstDown(requireUnconsumed = false)
-                            val up = waitForUpOrCancellation() ?: return@awaitEachGesture
-                            val now = SystemClock.uptimeMillis()
-                            val width = size.width.toFloat()
-                            val x = up.position.x
-                            if (controlsVisible) return@awaitEachGesture
-                            if (lastQuickTapUptime > 0L && now - lastQuickTapUptime in 1..320L) {
-                                lastQuickTapUptime = 0L
-                                when {
-                                    x < width * 0.38f -> {
-                                        player.seekTo((player.currentPosition - 10_000).coerceAtLeast(0L))
-                                    }
-                                    x > width * 0.62f -> {
-                                        player.seekTo(
-                                            (player.currentPosition + 10_000).coerceAtMost(
-                                                if (player.duration > 0) player.duration else Long.MAX_VALUE,
-                                            ),
-                                        )
-                                    }
-                                }
-                                controlsVisible = true
-                                onChromeVisibleChange(true)
-                            } else {
-                                lastQuickTapUptime = now
-                                toggleControls()
-                            }
-                        }
-                    },
+                    .zIndex(400f)
+                    .videoViewerTapGestures(media.id, toggleControlsRef, seekOnDoubleTapRef),
             )
         }
 
-        if (controlsVisible && isActive) {
+        seekFlashSide?.let { side ->
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .zIndex(48f)
-                    .background(Color.Black.copy(alpha = 0.18f))
-                    .clickable(
-                        interactionSource = remember(media.id) { MutableInteractionSource() },
-                        indication = null,
-                    ) { toggleControls() },
-            )
-            GlassSurface(
+                    .zIndex(420f),
+                contentAlignment = when (side) {
+                    SeekFlashSide.BACK -> Alignment.CenterStart
+                    SeekFlashSide.FORWARD -> Alignment.CenterEnd
+                },
+            ) {
+                Icon(
+                    imageVector = when (side) {
+                        SeekFlashSide.BACK -> Icons.Default.Replay10
+                        SeekFlashSide.FORWARD -> Icons.Default.Forward10
+                    },
+                    contentDescription = null,
+                    modifier = Modifier
+                        .padding(horizontal = 48.dp)
+                        .size(72.dp),
+                    tint = Color.White.copy(alpha = 0.85f),
+                )
+            }
+        }
+
+        AnimatedVisibility(
+            visible = controlsVisible && isActive,
+            enter = fadeIn(androidx.compose.animation.core.tween(80)),
+            exit = fadeOut(androidx.compose.animation.core.tween(80)),
+            modifier = Modifier.zIndex(480f),
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.18f))
+                        .videoViewerTapGestures(media.id, toggleControlsRef, seekOnDoubleTapRef),
+                )
+                GlassSurface(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .zIndex(50f)
@@ -606,6 +629,7 @@ private fun VideoPage(
                         }
                     }
                 }
+            }
         }
 
         BrightnessVolumeGestureLayer(
@@ -614,6 +638,35 @@ private fun VideoPage(
                 .zIndex(30f),
             enabled = isActive && !controlsVisible,
         )
+    }
+}
+
+private enum class SeekFlashSide {
+    BACK,
+    FORWARD,
+}
+
+private fun Modifier.videoViewerTapGestures(
+    gestureKey: Any,
+    onSingleTap: State<() -> Unit>,
+    onDoubleTapAtX: State<(Float, Float) -> Unit>,
+): Modifier = pointerInput(gestureKey) {
+    val doubleTapTimeout = viewConfiguration.doubleTapTimeoutMillis.toLong()
+    awaitEachGesture {
+        awaitFirstDown(requireUnconsumed = false)
+        waitForUpOrCancellation() ?: return@awaitEachGesture
+        val width = size.width.toFloat()
+        if (width <= 0f) return@awaitEachGesture
+
+        val secondDown = withTimeoutOrNull(doubleTapTimeout) {
+            awaitFirstDown(requireUnconsumed = false)
+        }
+        if (secondDown != null) {
+            waitForUpOrCancellation()
+            onDoubleTapAtX.value(secondDown.position.x, width)
+        } else {
+            onSingleTap.value()
+        }
     }
 }
 

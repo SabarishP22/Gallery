@@ -1,5 +1,8 @@
 package com.example.videoplayer.presentation.gallery
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -11,8 +14,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Collections
+import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.Videocam
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,16 +32,25 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.example.videoplayer.domain.model.MediaFilter
+import com.example.videoplayer.presentation.components.GlassSurface
 import com.example.videoplayer.presentation.theme.AuroraCyan
-import com.example.videoplayer.presentation.theme.DeepSpaceElevated
+import com.example.videoplayer.presentation.theme.AuroraViolet
+import com.example.videoplayer.presentation.theme.TextPrimary
 import com.example.videoplayer.presentation.theme.TextSecondary
 import kotlin.math.roundToInt
+
+private data class FilterTabSpec(
+    val filter: MediaFilter,
+    val label: String,
+    val icon: ImageVector,
+)
 
 @Composable
 fun FilterTabs(
@@ -41,62 +59,94 @@ fun FilterTabs(
     onSelected: (MediaFilter) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val tabs = listOf(
-        MediaFilter.ALL to "All",
-        MediaFilter.IMAGES to "Images",
-        MediaFilter.VIDEOS to "Videos",
-    )
+    val tabs = remember {
+        listOf(
+            FilterTabSpec(MediaFilter.ALL, "All", Icons.Rounded.Collections),
+            FilterTabSpec(MediaFilter.IMAGES, "Photos", Icons.Rounded.Image),
+            FilterTabSpec(MediaFilter.VIDEOS, "Videos", Icons.Rounded.Videocam),
+        )
+    }
     var tabWidthPx by remember { mutableIntStateOf(0) }
     val density = LocalDensity.current
     val highlightIndex = pagerPosition.roundToInt().coerceIn(0, tabs.lastIndex)
+    val indicatorOffsetPx = (pagerPosition * tabWidthPx).roundToInt()
 
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(44.dp)
-            .clip(RoundedCornerShape(22.dp))
-            .background(DeepSpaceElevated)
-            .padding(4.dp),
+    GlassSurface(
+        modifier = modifier.fillMaxWidth(),
+        cornerRadius = 26.dp,
     ) {
-        if (tabWidthPx > 0) {
-            val indicatorOffsetPx = (pagerPosition * tabWidthPx).roundToInt()
-            Box(
-                modifier = Modifier
-                    .offset { IntOffset(indicatorOffsetPx, 0) }
-                    .width(with(density) { tabWidthPx.toDp() })
-                    .fillMaxHeight()
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(AuroraCyan.copy(alpha = 0.22f)),
-            )
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp)
+                .padding(5.dp),
         ) {
-            tabs.forEachIndexed { index, (filter, label) ->
+            if (tabWidthPx > 0) {
                 Box(
                     modifier = Modifier
-                        .weight(1f)
+                        .offset { IntOffset(indicatorOffsetPx, 0) }
+                        .width(with(density) { tabWidthPx.toDp() })
                         .fillMaxHeight()
-                        .onSizeChanged { size ->
-                            if (tabWidthPx != size.width) tabWidthPx = size.width
-                        }
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                        ) { onSelected(filter) },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = if (index == highlightIndex || filter == selected) {
-                            FontWeight.SemiBold
-                        } else {
-                            FontWeight.Normal
-                        },
-                        color = if (index == highlightIndex || filter == selected) AuroraCyan else TextSecondary,
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(
+                            brush = androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                listOf(
+                                    AuroraCyan.copy(alpha = 0.28f),
+                                    AuroraViolet.copy(alpha = 0.22f),
+                                ),
+                            ),
+                        ),
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+            ) {
+                tabs.forEachIndexed { index, spec ->
+                    val isHighlighted = index == highlightIndex || spec.filter == selected
+                    val labelColor by animateColorAsState(
+                        targetValue = if (isHighlighted) TextPrimary else TextSecondary,
+                        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+                        label = "filterLabel",
                     )
+                    val iconTint by animateColorAsState(
+                        targetValue = if (isHighlighted) AuroraCyan else TextSecondary.copy(alpha = 0.85f),
+                        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+                        label = "filterIcon",
+                    )
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .onSizeChanged { size ->
+                                if (tabWidthPx != size.width) tabWidthPx = size.width
+                            }
+                            .clip(RoundedCornerShape(20.dp))
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                            ) { onSelected(spec.filter) },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                imageVector = spec.icon,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                                tint = iconTint,
+                            )
+                            Text(
+                                text = spec.label,
+                                modifier = Modifier.padding(start = 8.dp),
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = if (isHighlighted) FontWeight.SemiBold else FontWeight.Medium,
+                                color = labelColor,
+                            )
+                        }
+                    }
                 }
             }
         }

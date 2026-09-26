@@ -5,7 +5,7 @@ import com.example.videoplayer.domain.repository.LauncherIconRepository
 class SyncWallpaperLauncherUseCase(
     private val launcherIconRepository: LauncherIconRepository,
 ) {
-    suspend operator fun invoke(wallpaperUri: String?) {
-        launcherIconRepository.syncForWallpaper(wallpaperUri)
+    suspend operator fun invoke(wallpaperUri: String?, usePhotoAppIcon: Boolean = false) {
+        launcherIconRepository.syncForWallpaper(wallpaperUri, usePhotoAppIcon)
     }
 }

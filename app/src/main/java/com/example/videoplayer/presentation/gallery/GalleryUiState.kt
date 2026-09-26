@@ -30,6 +30,7 @@ data class GalleryUiState(
     val gridRowsVideos: List<GalleryGridRow> = emptyList(),
     val wallpaperUri: String? = null,
     val wallpaperBlurDp: Float = 18f,
+    val wallpaperUsePhotoAppIcon: Boolean = false,
     val wallpaperDialogMedia: GalleryMedia? = null,
 ) {
     fun gridRowsFor(filter: MediaFilter): List<GalleryGridRow> = when (filter) {

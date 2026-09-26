@@ -7,7 +7,7 @@ class LauncherIconRepositoryImpl(
     private val launcherIconDataSource: LauncherIconDataSource,
 ) : LauncherIconRepository {
 
-    override suspend fun syncForWallpaper(wallpaperUri: String?) {
-        launcherIconDataSource.syncForWallpaper(wallpaperUri)
+    override suspend fun syncForWallpaper(wallpaperUri: String?, usePhotoAppIcon: Boolean) {
+        launcherIconDataSource.syncForWallpaper(wallpaperUri, usePhotoAppIcon)
     }
 }
