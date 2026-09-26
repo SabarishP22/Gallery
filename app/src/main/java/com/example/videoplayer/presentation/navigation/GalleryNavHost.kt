@@ -9,7 +9,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.activity.compose.BackHandler
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -25,6 +24,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.videoplayer.AuraGalleryApplication
 import com.example.videoplayer.di.GalleryViewModelFactory
 import com.example.videoplayer.presentation.components.GalleryBackground
+import com.example.videoplayer.presentation.components.PixLabSnackbarHost
 import com.example.videoplayer.presentation.gallery.GalleryScreen
 import com.example.videoplayer.presentation.gallery.GalleryViewModel
 import com.example.videoplayer.presentation.viewer.MediaViewerScreen
@@ -63,7 +63,7 @@ fun GalleryNavHost(
             containerColor = Color.Transparent,
             snackbarHost = {
                 if (viewerId == null) {
-                    SnackbarHost(hostState = gallerySnackbarHostState)
+                    PixLabSnackbarHost(hostState = gallerySnackbarHostState)
                 }
             },
         ) {
@@ -110,12 +110,12 @@ fun GalleryNavHost(
         }
 
         if (viewerId != null) {
-            SnackbarHost(
+            PixLabSnackbarHost(
                 hostState = overlaySnackbarHostState,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .navigationBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 24.dp)
+                    .padding(horizontal = 12.dp, vertical = 24.dp)
                     .zIndex(20_000f),
             )
         }

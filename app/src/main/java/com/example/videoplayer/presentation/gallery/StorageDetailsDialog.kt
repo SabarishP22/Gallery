@@ -286,7 +286,7 @@ private fun AnimatedStorageBreakdown(stats: StorageStats) {
         AnimatedStorageRow(
             icon = Icons.Default.DeleteOutline,
             title = "Trash",
-            subtitle = "${stats.trashCount} items in trash",
+            subtitle = "${stats.trashCount} trashed files on device",
             bytes = stats.trashBytes,
             total = stats.totalBytes,
             color = Color(0xFFFF5252),
