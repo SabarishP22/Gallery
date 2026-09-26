@@ -233,6 +233,15 @@ fun MediaViewerScreen(
             }
         }
 
+        val showPhotoBrightness = !current.isVideo && !photoZoomed
+        if (showPhotoBrightness) {
+            BrightnessVolumeGestureLayer(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(410f),
+            )
+        }
+
         if (!chromeVisible) {
             Text(
                 text = "${pagerState.currentPage + 1} / ${items.size}",
@@ -635,8 +644,8 @@ private fun VideoPage(
         BrightnessVolumeGestureLayer(
             modifier = Modifier
                 .fillMaxSize()
-                .zIndex(30f),
-            enabled = isActive && !controlsVisible,
+                .zIndex(410f),
+            enabled = isActive,
         )
     }
 }

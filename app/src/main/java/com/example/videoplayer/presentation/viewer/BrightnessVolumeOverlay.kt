@@ -115,7 +115,7 @@ fun BrightnessVolumeGestureLayer(
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-    BoxWithConstraints(modifier = modifier.zIndex(30f)) {
+    BoxWithConstraints(modifier = modifier) {
         val edgeWidth = maxWidth * 0.26f
 
         GestureEdge(

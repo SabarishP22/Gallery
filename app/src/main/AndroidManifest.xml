@@ -1,211 +1,46 @@
-<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
-
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
-    <uses-permission
-        android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32" />
-
-    <application
-        android:name=".AuraGalleryApplication"
-        android:allowBackup="true"
-        android:dataExtractionRules="@xml/data_extraction_rules"
-        android:fullBackupContent="@xml/backup_rules"
-        android:icon="@mipmap/ic_launcher"
-        android:label="@string/app_name"
-        android:roundIcon="@mipmap/ic_launcher_round"
-        android:supportsRtl="true"
-        android:theme="@style/Theme.VideoPlayer">
-        <activity
-            android:name=".MainActivity"
-            android:exported="true"
-            android:label="@string/app_name"
-            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize"
-            android:screenOrientation="unspecified"
-            android:theme="@style/Theme.VideoPlayer"
-            android:windowSoftInputMode="adjustResize" />
-
-        <activity-alias
-            android:name=".launcher.Default"
-            android:enabled="true"
-            android:exported="true"
-            android:icon="@mipmap/ic_launcher"
-            android:label="@string/app_name"
-            android:roundIcon="@mipmap/ic_launcher_round"
-            android:targetActivity=".MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".launcher.Bucket0"
-            android:enabled="false"
-            android:exported="true"
-            android:icon="@mipmap/ic_launcher_bucket0"
-            android:label="@string/app_name"
-            android:roundIcon="@mipmap/ic_launcher_bucket0"
-            android:targetActivity=".MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".launcher.Bucket1"
-            android:enabled="false"
-            android:exported="true"
-            android:icon="@mipmap/ic_launcher_bucket1"
-            android:label="@string/app_name"
-            android:roundIcon="@mipmap/ic_launcher_bucket1"
-            android:targetActivity=".MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".launcher.Bucket2"
-            android:enabled="false"
-            android:exported="true"
-            android:icon="@mipmap/ic_launcher_bucket2"
-            android:label="@string/app_name"
-            android:roundIcon="@mipmap/ic_launcher_bucket2"
-            android:targetActivity=".MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".launcher.Bucket3"
-            android:enabled="false"
-            android:exported="true"
-            android:icon="@mipmap/ic_launcher_bucket3"
-            android:label="@string/app_name"
-            android:roundIcon="@mipmap/ic_launcher_bucket3"
-            android:targetActivity=".MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".launcher.Bucket4"
-            android:enabled="false"
-            android:exported="true"
-            android:icon="@mipmap/ic_launcher_bucket4"
-            android:label="@string/app_name"
-            android:roundIcon="@mipmap/ic_launcher_bucket4"
-            android:targetActivity=".MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".launcher.Bucket5"
-            android:enabled="false"
-            android:exported="true"
-            android:icon="@mipmap/ic_launcher_bucket5"
-            android:label="@string/app_name"
-            android:roundIcon="@mipmap/ic_launcher_bucket5"
-            android:targetActivity=".MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".launcher.Bucket6"
-            android:enabled="false"
-            android:exported="true"
-            android:icon="@mipmap/ic_launcher_bucket6"
-            android:label="@string/app_name"
-            android:roundIcon="@mipmap/ic_launcher_bucket6"
-            android:targetActivity=".MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".launcher.Bucket7"
-            android:enabled="false"
-            android:exported="true"
-            android:icon="@mipmap/ic_launcher_bucket7"
-            android:label="@string/app_name"
-            android:roundIcon="@mipmap/ic_launcher_bucket7"
-            android:targetActivity=".MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".launcher.Bucket8"
-            android:enabled="false"
-            android:exported="true"
-            android:icon="@mipmap/ic_launcher_bucket8"
-            android:label="@string/app_name"
-            android:roundIcon="@mipmap/ic_launcher_bucket8"
-            android:targetActivity=".MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".launcher.Bucket9"
-            android:enabled="false"
-            android:exported="true"
-            android:icon="@mipmap/ic_launcher_bucket9"
-            android:label="@string/app_name"
-            android:roundIcon="@mipmap/ic_launcher_bucket9"
-            android:targetActivity=".MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".launcher.WallpaperPhoto"
-            android:enabled="false"
-            android:exported="true"
-            android:icon="@mipmap/ic_launcher_wallpaper_photo"
-            android:label="@string/app_name"
-            android:roundIcon="@mipmap/ic_launcher_wallpaper_photo"
-            android:targetActivity=".MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-    </application>
-
-</manifest>
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
+    <application
+        android:name=".AuraGalleryApplication"
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.VideoPlayer">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize"
+            android:screenOrientation="unspecified"
+            android:theme="@style/Theme.VideoPlayer"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity-alias
+            android:name=".launcher.Default"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="@string/app_name"
+            android:roundIcon="@mipmap/ic_launcher_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+    </application>
+
+</manifest>

@@ -47,16 +47,11 @@ class GalleryViewModel(
                     it.copy(
                         wallpaperUri = settings.imageUri,
                         wallpaperBlurDp = settings.blurRadiusDp,
-                        wallpaperUsePhotoAppIcon = settings.usePhotoAppIcon,
                     )
                 }
-                val syncKey = "${settings.imageUri}|${settings.usePhotoAppIcon}"
-                if (syncKey != lastSyncedWallpaperUri) {
-                    lastSyncedWallpaperUri = syncKey
-                    appContainer.syncWallpaperLauncherUseCase(
-                        settings.imageUri,
-                        settings.usePhotoAppIcon,
-                    )
+                if (settings.imageUri != lastSyncedWallpaperUri) {
+                    lastSyncedWallpaperUri = settings.imageUri
+                    appContainer.syncWallpaperLauncherUseCase(settings.imageUri)
                 }
             }
         }
@@ -273,16 +268,15 @@ class GalleryViewModel(
         _uiState.update { it.copy(wallpaperDialogMedia = null) }
     }
 
-    fun saveWallpaper(uri: Uri, blurDp: Float, usePhotoAppIcon: Boolean) {
+    fun saveWallpaper(uri: Uri, blurDp: Float) {
         viewModelScope.launch {
-            saveWallpaperUseCase(uri, blurDp, usePhotoAppIcon)
+            saveWallpaperUseCase(uri, blurDp)
                 .onSuccess { persistedUri ->
-                    lastSyncedWallpaperUri = "$persistedUri|$usePhotoAppIcon"
+                    lastSyncedWallpaperUri = persistedUri
                     _uiState.update {
                         it.copy(
                             wallpaperUri = persistedUri,
                             wallpaperBlurDp = blurDp,
-                            wallpaperUsePhotoAppIcon = usePhotoAppIcon,
                             wallpaperDialogMedia = null,
                         )
                     }
@@ -306,7 +300,6 @@ class GalleryViewModel(
                 it.copy(
                     wallpaperUri = null,
                     wallpaperBlurDp = 18f,
-                    wallpaperUsePhotoAppIcon = false,
                     wallpaperDialogMedia = null,
                 )
             }
