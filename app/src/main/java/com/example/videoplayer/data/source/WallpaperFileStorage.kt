@@ -3,7 +3,9 @@ package com.example.videoplayer.data.source
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.ImageDecoder
 import android.net.Uri
+import android.os.Build
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -18,31 +20,18 @@ class WallpaperFileStorage(
     suspend fun persistFromSourceUri(sourceUri: Uri): PersistedWallpaper = withContext(Dispatchers.IO) {
         val dir = File(context.filesDir, DIR_NAME).apply { mkdirs() }
         val outFile = File(dir, FILE_NAME)
-        val boundsOptions = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        context.contentResolver.openInputStream(sourceUri)?.use { stream ->
-            BitmapFactory.decodeStream(stream, null, boundsOptions)
-        } ?: error("Could not read image")
-        val sampleSize = computeSampleSize(
-            width = boundsOptions.outWidth.coerceAtLeast(1),
-            height = boundsOptions.outHeight.coerceAtLeast(1),
-            maxEdge = MAX_SAVE_EDGE_PX,
-        )
-        val decoded = context.contentResolver.openInputStream(sourceUri)?.use { stream ->
-            BitmapFactory.decodeStream(
-                stream,
-                null,
-                BitmapFactory.Options().apply {
-                    inSampleSize = sampleSize
-                    inPreferredConfig = Bitmap.Config.ARGB_8888
-                },
-            )
-        } ?: error("Could not decode image")
+
+        val decoded = decodeBitmapFromUri(sourceUri)
+            ?: error("Could not read or decode image")
 
         val scaled = scaleDownIfNeeded(decoded, MAX_SAVE_EDGE_PX)
         if (scaled != decoded && !decoded.isRecycled) decoded.recycle()
 
         FileOutputStream(outFile).use { output ->
-            scaled.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, output)
+            if (!scaled.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, output)) {
+                error("Could not write wallpaper file")
+            }
+            output.flush()
             output.fd.sync()
         }
         if (!scaled.isRecycled) scaled.recycle()
@@ -54,6 +43,28 @@ class WallpaperFileStorage(
             uriString = Uri.fromFile(outFile).toString(),
             contentVersion = version,
         )
+    }
+
+    private fun decodeBitmapFromUri(sourceUri: Uri): Bitmap? {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            runCatching {
+                val source = ImageDecoder.createSource(context.contentResolver, sourceUri)
+                return ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
+                    decoder.isMutableRequired = false
+                    decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+                }
+            }
+        }
+
+        context.contentResolver.openInputStream(sourceUri)?.use { stream ->
+            BitmapFactory.decodeStream(stream)?.let { return it }
+        }
+
+        context.contentResolver.openFileDescriptor(sourceUri, "r")?.use { pfd ->
+            BitmapFactory.decodeFileDescriptor(pfd.fileDescriptor)?.let { return it }
+        }
+
+        return null
     }
 
     fun deleteStoredWallpaper() {
@@ -79,15 +90,6 @@ class WallpaperFileStorage(
         val targetW = (w * scale).roundToInt().coerceAtLeast(1)
         val targetH = (h * scale).roundToInt().coerceAtLeast(1)
         return Bitmap.createScaledBitmap(source, targetW, targetH, true)
-    }
-
-    private fun computeSampleSize(width: Int, height: Int, maxEdge: Int): Int {
-        var sample = 1
-        val longest = max(width, height)
-        while (longest / sample > maxEdge * 2) {
-            sample *= 2
-        }
-        return sample
     }
 
     data class PersistedWallpaper(

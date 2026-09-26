@@ -42,6 +42,8 @@ data class GalleryUiState(
     val storageStats: StorageStats? = null,
     val storageStatsError: String? = null,
     val snackbarMessage: String? = null,
+    val snackbarEventId: Long = 0L,
+    val wallpaperSaveInProgress: Boolean = false,
 ) {
     fun gridRowsFor(filter: MediaFilter): List<GalleryGridRow> = when (filter) {
         MediaFilter.ALL -> gridRowsAll

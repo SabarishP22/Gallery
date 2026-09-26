@@ -443,10 +443,24 @@ class GalleryViewModel(
         _uiState.update { it.copy(snackbarMessage = null) }
     }
 
+    private fun publishSnackbar(message: String) {
+        _uiState.update {
+            it.copy(
+                snackbarMessage = message,
+                snackbarEventId = it.snackbarEventId + 1L,
+            )
+        }
+    }
+
     fun saveWallpaper(uri: Uri, blurDp: Float) {
         viewModelScope.launch {
+            _uiState.update { it.copy(wallpaperSaveInProgress = true) }
             val result = withContext(Dispatchers.IO) {
-                saveWallpaperUseCase(uri, blurDp)
+                runCatching {
+                    appContainer.application.contentResolver.openInputStream(uri)?.use { }
+                        ?: error("Cannot read this image. Check gallery permission.")
+                    saveWallpaperUseCase(uri, blurDp).getOrThrow()
+                }
             }
             result.onSuccess { saved ->
                 lastSyncedWallpaperUri = saved.uri
@@ -456,37 +470,45 @@ class GalleryViewModel(
                         wallpaperBlurDp = blurDp,
                         wallpaperContentVersion = saved.contentRevision,
                         wallpaperDialogMedia = null,
-                        snackbarMessage = "Background updated successfully",
+                        wallpaperSaveInProgress = false,
                     )
                 }
+                publishSnackbar("Background updated successfully")
                 syncLauncherInBackground(saved.uri)
             }.onFailure {
                 _uiState.update { state ->
                     state.copy(
-                        errorMessage = "Could not save background. Try another image.",
-                        wallpaperDialogMedia = null,
+                        wallpaperSaveInProgress = false,
                     )
                 }
+                publishSnackbar("Could not apply background. Try another photo.")
             }
         }
     }
 
     fun clearWallpaper() {
         viewModelScope.launch {
-            val revision = withContext(Dispatchers.IO) {
-                clearWallpaperUseCase()
+            _uiState.update { it.copy(wallpaperSaveInProgress = true) }
+            val result = withContext(Dispatchers.IO) {
+                runCatching { clearWallpaperUseCase() }
             }
-            lastSyncedWallpaperUri = null
-            _uiState.update {
-                it.copy(
-                    wallpaperUri = null,
-                    wallpaperBlurDp = 18f,
-                    wallpaperContentVersion = revision,
-                    wallpaperDialogMedia = null,
-                    snackbarMessage = "Background reset to default",
-                )
+            result.onSuccess { revision ->
+                lastSyncedWallpaperUri = null
+                _uiState.update {
+                    it.copy(
+                        wallpaperUri = null,
+                        wallpaperBlurDp = 18f,
+                        wallpaperContentVersion = revision,
+                        wallpaperDialogMedia = null,
+                        wallpaperSaveInProgress = false,
+                    )
+                }
+                publishSnackbar("Background reset to default")
+                syncLauncherInBackground(null)
+            }.onFailure {
+                _uiState.update { it.copy(wallpaperSaveInProgress = false) }
+                publishSnackbar("Could not reset background.")
             }
-            syncLauncherInBackground(null)
         }
     }
 

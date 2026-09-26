@@ -37,9 +37,6 @@ import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -95,8 +92,6 @@ fun MediaViewerScreen(
     startIndex: Int,
     onBack: () -> Unit,
     onWallpaperRequest: (GalleryMedia) -> Unit = {},
-    snackbarMessage: String? = null,
-    onSnackbarDismiss: () -> Unit = {},
 ) {
     if (items.isEmpty()) {
         LaunchedEffect(Unit) { onBack() }
@@ -110,16 +105,6 @@ fun MediaViewerScreen(
     val context = LocalContext.current
     val current = items[pagerState.currentPage]
     var photoZoomed by remember { mutableStateOf(false) }
-    val snackbarHostState = remember { SnackbarHostState() }
-
-    LaunchedEffect(snackbarMessage) {
-        val message = snackbarMessage ?: return@LaunchedEffect
-        snackbarHostState.showSnackbar(
-            message = message,
-            duration = SnackbarDuration.Short,
-        )
-        onSnackbarDismiss()
-    }
 
     val activity = context as? Activity
     ImmersiveViewerSystemBars(enabled = true)
@@ -258,14 +243,6 @@ fun MediaViewerScreen(
             )
         }
 
-        SnackbarHost(
-            hostState = snackbarHostState,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .navigationBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 20.dp)
-                .zIndex(600f),
-        )
     }
 }
 

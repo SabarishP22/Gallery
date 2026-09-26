@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -75,6 +76,7 @@ import kotlinx.coroutines.delay
 fun WallpaperSetupDialog(
     media: GalleryMedia,
     initialBlurDp: Float,
+    isSaving: Boolean = false,
     onDismiss: () -> Unit,
     onSave: (blurDp: Float) -> Unit,
     onClear: () -> Unit,
@@ -99,8 +101,11 @@ fun WallpaperSetupDialog(
     )
 
     Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = true),
+        onDismissRequest = { if (!isSaving) onDismiss() },
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            dismissOnClickOutside = !isSaving,
+        ),
     ) {
         Box(
             modifier = Modifier
@@ -155,7 +160,7 @@ fun WallpaperSetupDialog(
                             maxLines = 1,
                         )
                     }
-                    IconButton(onClick = onDismiss) {
+                    IconButton(onClick = onDismiss, enabled = !isSaving) {
                         Icon(Icons.Default.Close, contentDescription = "Close", tint = TextPrimary)
                     }
                 }
@@ -253,6 +258,7 @@ fun WallpaperSetupDialog(
                 ) {
                     Button(
                         onClick = onClear,
+                        enabled = !isSaving,
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = DeepSpace.copy(alpha = 0.85f),
@@ -264,14 +270,26 @@ fun WallpaperSetupDialog(
                     }
                     Button(
                         onClick = { onSave(blurDp) },
+                        enabled = !isSaving,
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = AuroraCyan,
                             contentColor = DeepSpace,
                         ),
                     ) {
-                        Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Text("Apply", modifier = Modifier.padding(start = 6.dp))
+                        if (isSaving) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = DeepSpace,
+                                strokeWidth = 2.dp,
+                            )
+                        } else {
+                            Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
+                        }
+                        Text(
+                            text = if (isSaving) "Applying…" else "Apply",
+                            modifier = Modifier.padding(start = 6.dp),
+                        )
                     }
                 }
             }
