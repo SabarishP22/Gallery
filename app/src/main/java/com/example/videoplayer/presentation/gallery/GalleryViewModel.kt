@@ -9,6 +9,7 @@ import com.example.videoplayer.domain.model.MediaFilter
 import com.example.videoplayer.domain.model.SortOrder
 import com.example.videoplayer.domain.model.TrashDeleteRequest
 import com.example.videoplayer.domain.usecase.FilterAndSortMediaUseCase
+import com.example.videoplayer.domain.usecase.GetStorageStatsUseCase
 import com.example.videoplayer.domain.usecase.TrashMediaUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -32,6 +33,7 @@ class GalleryViewModel(
     private val clearWallpaperUseCase = appContainer.clearWallpaperUseCase
     private val getViewerPagerMediaUseCase = appContainer.getViewerPagerMediaUseCase
     private val trashMediaUseCase: TrashMediaUseCase = appContainer.trashMediaUseCase
+    private val getStorageStatsUseCase: GetStorageStatsUseCase = appContainer.getStorageStatsUseCase
     private val filterAndSortMediaUseCase: FilterAndSortMediaUseCase =
         appContainer.filterAndSortMediaUseCase()
 
@@ -313,6 +315,52 @@ class GalleryViewModel(
     fun clearSelection() {
         onSwipeSelectFinished()
         _uiState.update { it.copy(selectionMode = false, selectedIds = emptySet()) }
+    }
+
+    fun openStorageDialog() {
+        _uiState.update {
+            it.copy(
+                showStorageDialog = true,
+                storageStatsLoading = true,
+                storageStats = null,
+                storageStatsError = null,
+            )
+        }
+        viewModelScope.launch {
+            val media = _uiState.value.allMedia
+            val result = withContext(Dispatchers.IO) {
+                getStorageStatsUseCase(media)
+            }
+            _uiState.update { state ->
+                if (!state.showStorageDialog) return@update state
+                result.fold(
+                    onSuccess = { stats ->
+                        state.copy(
+                            storageStatsLoading = false,
+                            storageStats = stats,
+                            storageStatsError = null,
+                        )
+                    },
+                    onFailure = {
+                        state.copy(
+                            storageStatsLoading = false,
+                            storageStatsError = it.message ?: "Could not load storage info.",
+                        )
+                    },
+                )
+            }
+        }
+    }
+
+    fun dismissStorageDialog() {
+        _uiState.update {
+            it.copy(
+                showStorageDialog = false,
+                storageStatsLoading = false,
+                storageStats = null,
+                storageStatsError = null,
+            )
+        }
     }
 
     fun openDeleteConfirm() {

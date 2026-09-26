@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.SdStorage
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.outlined.PhotoLibrary
@@ -145,6 +146,14 @@ fun GalleryScreen(
         )
     }
 
+    StorageDetailsDialog(
+        visible = state.showStorageDialog,
+        loading = state.storageStatsLoading,
+        stats = state.storageStats,
+        errorMessage = state.storageStatsError,
+        onDismiss = viewModel::dismissStorageDialog,
+    )
+
     val permissions = remember {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO)
@@ -198,6 +207,7 @@ fun GalleryScreen(
             onShareSelection = {
                 shareMedia(context, state.allMedia.filter { it.id in state.selectedIds })
             },
+            onOpenStorage = viewModel::openStorageDialog,
         )
 
         GallerySearchBar(
@@ -339,6 +349,7 @@ private fun GalleryTopBar(
     onClearSelection: () -> Unit,
     onDeleteSelection: () -> Unit,
     onShareSelection: () -> Unit,
+    onOpenStorage: () -> Unit,
 ) {
     var showSortPicker by remember { mutableStateOf(false) }
 
@@ -413,6 +424,16 @@ private fun GalleryTopBar(
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                IconButton(
+                    onClick = onOpenStorage,
+                    colors = AuraIconDefaults.iconButtonColors(),
+                ) {
+                    Icon(
+                        Icons.Default.SdStorage,
+                        contentDescription = "Storage details",
+                        tint = TextPrimary,
+                    )
+                }
                 IconButton(
                     onClick = onOpenSearch,
                     colors = AuraIconDefaults.iconButtonColors(),
