@@ -3,13 +3,11 @@ package com.example.videoplayer.ui.gallery
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -24,17 +22,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -49,13 +43,16 @@ import com.example.videoplayer.util.mediaThumbnailRequest
 
 private sealed interface GridEntry {
     val key: String
+    val contentType: Int
 
     data class Header(val title: String) : GridEntry {
         override val key: String = "header-$title"
+        override val contentType: Int = 0
     }
 
     data class Item(val media: GalleryMedia) : GridEntry {
-        override val key: String = "media-${media.id}-${media.uri}"
+        override val key: String = "media-${media.id}"
+        override val contentType: Int = 1
     }
 }
 
@@ -69,7 +66,6 @@ fun MediaGrid(
     selectionMode: Boolean,
     onClick: (GalleryMedia) -> Unit,
     onLongClick: (GalleryMedia) -> Unit,
-    onPinchColumnChange: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val entries = remember(items) {
@@ -84,63 +80,45 @@ fun MediaGrid(
         }
     }
 
-    var pinchAccumulator by remember { mutableFloatStateOf(1f) }
-
     LazyVerticalGrid(
-        state = gridState,
-        modifier = modifier
-            .fillMaxSize()
-            .pointerInput(columns) {
-                detectTransformGestures { _, _, zoom, _ ->
-                    if (zoom == 1f) return@detectTransformGestures
-                    pinchAccumulator *= zoom
-                    when {
-                        pinchAccumulator > 1.22f -> {
-                            onPinchColumnChange((columns + 1).coerceAtMost(7))
-                            pinchAccumulator = 1f
-                        }
-                        pinchAccumulator < 0.78f -> {
-                            onPinchColumnChange((columns - 1).coerceAtLeast(2))
-                            pinchAccumulator = 1f
-                        }
+            state = gridState,
+            modifier = modifier.fillMaxSize(),
+            columns = GridCells.Fixed(columns),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            items(
+                items = entries,
+                key = { it.key },
+                contentType = { it.contentType },
+                span = { entry ->
+                    if (entry is GridEntry.Header) GridItemSpan(maxLineSpan) else GridItemSpan(1)
+                },
+            ) { entry ->
+                when (entry) {
+                    is GridEntry.Header -> {
+                        Text(
+                            text = entry.title,
+                            modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextPrimary,
+                        )
                     }
-                }
-            },
-        columns = GridCells.Fixed(columns),
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        items(
-            items = entries,
-            key = { it.key },
-            span = { entry ->
-                if (entry is GridEntry.Header) GridItemSpan(maxLineSpan) else GridItemSpan(1)
-            },
-        ) { entry ->
-            when (entry) {
-                is GridEntry.Header -> {
-                    Text(
-                        text = entry.title,
-                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = TextPrimary,
-                    )
-                }
-                is GridEntry.Item -> {
-                    MediaGridItem(
-                        media = entry.media,
-                        selected = entry.media.id in selectedIds,
-                        selectionMode = selectionMode,
-                        gridColumns = columns,
-                        onClick = { onClick(entry.media) },
-                        onLongClick = { onLongClick(entry.media) },
-                    )
+                    is GridEntry.Item -> {
+                        MediaGridItem(
+                            media = entry.media,
+                            selected = entry.media.id in selectedIds,
+                            selectionMode = selectionMode,
+                            gridColumns = columns,
+                            onClick = { onClick(entry.media) },
+                            onLongClick = { onLongClick(entry.media) },
+                        )
+                    }
                 }
             }
         }
-    }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -156,12 +134,12 @@ private fun MediaGridItem(
     val context = LocalContext.current
     val thumbSize = remember(gridColumns) {
         when {
-            gridColumns <= 2 -> 720
-            gridColumns <= 4 -> 480
-            else -> 320
+            gridColumns <= 2 -> 540
+            gridColumns <= 4 -> 360
+            else -> 240
         }
     }
-    val request = remember(media.uri, media.isVideo, thumbSize) {
+    val request = remember(media.id, thumbSize) {
         mediaThumbnailRequest(context, media, thumbSize)
     }
 

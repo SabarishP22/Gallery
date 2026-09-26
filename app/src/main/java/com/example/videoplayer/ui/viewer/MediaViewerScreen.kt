@@ -8,8 +8,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.rememberTransformableState
-import androidx.compose.foundation.gestures.transformable
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -71,9 +70,12 @@ import com.example.videoplayer.data.GalleryMedia
 import com.example.videoplayer.ui.components.GlassSurface
 import com.example.videoplayer.ui.theme.AuroraCyan
 import com.example.videoplayer.ui.theme.DeepSpace
+import com.example.videoplayer.ui.theme.TextPrimary
+import com.example.videoplayer.util.ForcedOrientationController
 import com.example.videoplayer.util.formatDuration
 import com.example.videoplayer.util.formatFileSize
 import com.example.videoplayer.util.mediaThumbnailRequest
+import android.app.Activity
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import java.text.SimpleDateFormat
@@ -97,6 +99,14 @@ fun MediaViewerScreen(
     var infoVisible by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val current = items[pagerState.currentPage]
+    var photoZoomed by remember { mutableStateOf(false) }
+
+    val activity = context as? Activity
+    DisposableEffect(activity) {
+        val controller = activity?.let { ForcedOrientationController(it) }
+        controller?.start()
+        onDispose { controller?.stop() }
+    }
 
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.currentPage }
@@ -104,6 +114,7 @@ fun MediaViewerScreen(
             .collect {
                 chromeVisible = false
                 infoVisible = false
+                photoZoomed = false
             }
     }
 
@@ -116,6 +127,7 @@ fun MediaViewerScreen(
             state = pagerState,
             modifier = Modifier.fillMaxSize(),
             beyondViewportPageCount = 1,
+            userScrollEnabled = !photoZoomed,
             key = { page -> items[page].id },
         ) { page ->
             val media = items[page]
@@ -131,6 +143,7 @@ fun MediaViewerScreen(
                 ZoomablePhotoPage(
                     media = media,
                     onToggleChrome = { chromeVisible = !chromeVisible },
+                    onZoomChanged = { zoomed -> if (isActive) photoZoomed = zoomed },
                 )
             }
         }
@@ -230,32 +243,18 @@ fun MediaViewerScreen(
 private fun ZoomablePhotoPage(
     media: GalleryMedia,
     onToggleChrome: () -> Unit,
+    onZoomChanged: (Boolean) -> Unit,
 ) {
     var scale by remember(media.id) { mutableFloatStateOf(1f) }
     var offset by remember(media.id) { mutableStateOf(Offset.Zero) }
-    val state = rememberTransformableState { zoomChange, panChange, _ ->
-        scale = (scale * zoomChange).coerceIn(1f, 5f)
-        offset = if (scale > 1f) offset + panChange else Offset.Zero
-    }
     val context = LocalContext.current
 
+    LaunchedEffect(scale) {
+        onZoomChanged(scale > 1.05f)
+    }
+
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .pointerInput(media.id) {
-                detectTapGestures(
-                    onTap = { onToggleChrome() },
-                    onDoubleTap = {
-                        if (scale > 1f) {
-                            scale = 1f
-                            offset = Offset.Zero
-                        } else {
-                            scale = 2.5f
-                        }
-                    },
-                )
-            }
-            .transformable(state = state),
+        modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center,
     ) {
         AsyncImage(
@@ -269,7 +268,38 @@ private fun ZoomablePhotoPage(
                     scaleY = scale
                     translationX = offset.x
                     translationY = offset.y
-                },
+                }
+                .pointerInput(media.id) {
+                    detectTapGestures(
+                        onTap = { onToggleChrome() },
+                        onDoubleTap = {
+                            if (scale > 1f) {
+                                scale = 1f
+                                offset = Offset.Zero
+                            } else {
+                                scale = 2.5f
+                            }
+                        },
+                    )
+                }
+                .then(
+                    if (scale > 1f) {
+                        Modifier.pointerInput(media.id, scale) {
+                            detectTransformGestures { _, pan, zoom, _ ->
+                                if (zoom != 1f) {
+                                    scale = (scale * zoom).coerceIn(1f, 5f)
+                                }
+                                offset += pan
+                                if (scale <= 1f) {
+                                    scale = 1f
+                                    offset = Offset.Zero
+                                }
+                            }
+                        }
+                    } else {
+                        Modifier
+                    },
+                ),
         )
     }
 }
@@ -349,28 +379,7 @@ private fun VideoPage(
         }
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .pointerInput(media.id, isActive) {
-                if (!isActive) return@pointerInput
-                detectTapGestures(
-                    onTap = {
-                        controlsVisible = !controlsVisible
-                        onChromeVisibleChange(controlsVisible)
-                    },
-                    onDoubleTap = { offset ->
-                        val width = size.width
-                        if (offset.x < width / 2f) {
-                            player.seekTo((player.currentPosition - 10_000).coerceAtLeast(0L))
-                        } else {
-                            player.seekTo((player.currentPosition + 10_000).coerceAtMost(player.duration))
-                        }
-                        controlsVisible = true
-                    },
-                )
-            },
-    ) {
+    Box(modifier = Modifier.fillMaxSize()) {
         AndroidView(
             factory = { ctx ->
                 PlayerView(ctx).apply {
@@ -392,6 +401,32 @@ private fun VideoPage(
             enabled = isActive,
         )
 
+        if (isActive) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 108.dp)
+                    .pointerInput(media.id) {
+                        detectTapGestures(
+                            onTap = {
+                                controlsVisible = !controlsVisible
+                                onChromeVisibleChange(controlsVisible)
+                            },
+                            onDoubleTap = { tapOffset ->
+                                val width = size.width
+                                if (tapOffset.x < width / 2f) {
+                                    player.seekTo((player.currentPosition - 10_000).coerceAtLeast(0L))
+                                } else {
+                                    player.seekTo((player.currentPosition + 10_000).coerceAtMost(player.duration))
+                                }
+                                controlsVisible = true
+                                onChromeVisibleChange(true)
+                            },
+                        )
+                    },
+            )
+        }
+
         AnimatedVisibility(
             visible = controlsVisible && isActive,
             enter = fadeIn(),
@@ -412,7 +447,11 @@ private fun VideoPage(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back",
+                                tint = TextPrimary,
+                            )
                         }
                         Column(modifier = Modifier.weight(1f)) {
                             Text(text = media.displayName, style = MaterialTheme.typography.titleSmall, maxLines = 1)
@@ -424,7 +463,7 @@ private fun VideoPage(
                         }
                         Box {
                             IconButton(onClick = { speedMenuExpanded = true }) {
-                                Icon(Icons.Default.Speed, contentDescription = "Speed")
+                                Icon(Icons.Default.Speed, contentDescription = "Speed", tint = TextPrimary)
                             }
                             DropdownMenu(expanded = speedMenuExpanded, onDismissRequest = { speedMenuExpanded = false }) {
                                 listOf(0.25f, 0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f).forEach { speed ->
@@ -447,7 +486,7 @@ private fun VideoPage(
                             }
                             context.startActivity(android.content.Intent.createChooser(share, "Share video"))
                         }) {
-                            Icon(Icons.Default.Share, contentDescription = "Share")
+                            Icon(Icons.Default.Share, contentDescription = "Share", tint = TextPrimary)
                         }
                     }
                 }
@@ -460,7 +499,12 @@ private fun VideoPage(
                     IconButton(onClick = {
                         player.seekTo((player.currentPosition - 10_000).coerceAtLeast(0L))
                     }) {
-                        Icon(Icons.Default.Replay10, contentDescription = "Back 10s", modifier = Modifier.size(44.dp))
+                        Icon(
+                            Icons.Default.Replay10,
+                            contentDescription = "Back 10s",
+                            modifier = Modifier.size(44.dp),
+                            tint = TextPrimary,
+                        )
                     }
                     IconButton(onClick = {
                         if (player.isPlaying) player.pause() else player.play()
@@ -475,7 +519,12 @@ private fun VideoPage(
                     IconButton(onClick = {
                         player.seekTo((player.currentPosition + 10_000).coerceAtMost(player.duration))
                     }) {
-                        Icon(Icons.Default.Forward10, contentDescription = "Forward 10s", modifier = Modifier.size(44.dp))
+                        Icon(
+                            Icons.Default.Forward10,
+                            contentDescription = "Forward 10s",
+                            modifier = Modifier.size(44.dp),
+                            tint = TextPrimary,
+                        )
                     }
                 }
 

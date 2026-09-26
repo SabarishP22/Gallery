@@ -18,7 +18,8 @@ fun mediaThumbnailRequest(
     val builder = ImageRequest.Builder(context)
         .data(media.uri)
         .size(pixelSize)
-        .crossfade(160)
+        .crossfade(pixelSize >= 800)
+        .allowHardware(true)
         .memoryCacheKey("${media.uri}-thumb-$pixelSize")
         .diskCacheKey("${media.uri}-thumb-$pixelSize")
 

@@ -28,6 +28,7 @@ data class GalleryUiState(
     val errorMessage: String? = null,
     val permissionGranted: Boolean = false,
     val activeMediaId: Long? = null,
+    val displayItems: List<GalleryMedia> = emptyList(),
 )
 
 class GalleryViewModel(application: Application) : AndroidViewModel(application) {
@@ -97,6 +98,7 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
                             isLoading = false,
                             isRefreshing = false,
                             allMedia = media,
+                            displayItems = computeFiltered(it.copy(allMedia = media)),
                         )
                     }
                 }
@@ -113,15 +115,15 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun setFilter(filter: MediaFilter) {
-        _uiState.update { it.copy(filter = filter) }
+        _uiState.update { it.copy(filter = filter, displayItems = computeFiltered(it.copy(filter = filter))) }
     }
 
     fun setSearchQuery(query: String) {
-        _uiState.update { it.copy(searchQuery = query) }
+        _uiState.update { it.copy(searchQuery = query, displayItems = computeFiltered(it.copy(searchQuery = query))) }
     }
 
     fun setSortOrder(order: SortOrder) {
-        _uiState.update { it.copy(sortOrder = order) }
+        _uiState.update { it.copy(sortOrder = order, displayItems = computeFiltered(it.copy(sortOrder = order))) }
     }
 
     fun toggleGridColumns() {
@@ -164,6 +166,10 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun filteredMedia(state: GalleryUiState = _uiState.value): List<GalleryMedia> {
+        return state.displayItems.ifEmpty { computeFiltered(state) }
+    }
+
+    private fun computeFiltered(state: GalleryUiState): List<GalleryMedia> {
         var list = state.allMedia
         list = when (state.filter) {
             MediaFilter.ALL -> list
@@ -174,14 +180,13 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
             val q = state.searchQuery.trim().lowercase()
             list = list.filter { it.displayName.lowercase().contains(q) }
         }
-        list = when (state.sortOrder) {
+        return when (state.sortOrder) {
             SortOrder.DATE_NEWEST -> list.sortedByDescending { it.dateAddedSec }
             SortOrder.DATE_OLDEST -> list.sortedBy { it.dateAddedSec }
             SortOrder.NAME_ASC -> list.sortedBy { it.displayName.lowercase() }
             SortOrder.NAME_DESC -> list.sortedByDescending { it.displayName.lowercase() }
             SortOrder.SIZE_LARGEST -> list.sortedByDescending { it.sizeBytes }
         }
-        return list
     }
 
     fun mediaById(id: Long): GalleryMedia? = _uiState.value.allMedia.find { it.id == id }

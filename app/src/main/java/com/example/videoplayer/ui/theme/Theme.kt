@@ -1,9 +1,12 @@
 package com.example.videoplayer.ui.theme
 
 import android.app.Activity
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
@@ -19,8 +22,8 @@ private val AuraDarkScheme = darkColorScheme(
     onBackground = TextPrimary,
     surface = DeepSpaceSurface,
     onSurface = TextPrimary,
-    surfaceVariant = DeepSpaceElevated,
     onSurfaceVariant = TextSecondary,
+    surfaceVariant = DeepSpaceElevated,
     outline = GlassWhiteStrong,
 )
 
@@ -42,6 +45,20 @@ fun VideoPlayerTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = AuraDarkScheme,
         typography = Typography,
-        content = content,
+        content = {
+            CompositionLocalProvider(
+                LocalContentColor provides TextPrimary,
+            ) {
+                content()
+            }
+        },
+    )
+}
+
+object AuraIconDefaults {
+    @Composable
+    fun iconButtonColors() = IconButtonDefaults.iconButtonColors(
+        contentColor = TextPrimary,
+        disabledContentColor = TextSecondary,
     )
 }

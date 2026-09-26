@@ -40,7 +40,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -50,8 +49,10 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.example.videoplayer.data.GalleryMedia
 import com.example.videoplayer.data.SortOrder
+import com.example.videoplayer.ui.theme.AuraIconDefaults
 import com.example.videoplayer.ui.theme.AuroraCyan
 import com.example.videoplayer.ui.theme.DeepSpaceElevated
+import com.example.videoplayer.ui.theme.TextPrimary
 import com.example.videoplayer.ui.theme.TextSecondary
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -61,9 +62,7 @@ fun GalleryScreen(
     onOpenMedia: (Long) -> Unit,
 ) {
     val state by viewModel.uiState.collectAsState()
-    val mediaItems by remember(state.allMedia, state.filter, state.searchQuery, state.sortOrder) {
-        derivedStateOf { viewModel.filteredMedia(state) }
-    }
+    val mediaItems = state.displayItems
     val context = LocalContext.current
     var showSearch by remember { mutableStateOf(false) }
     var showSortMenu by remember { mutableStateOf(false) }
@@ -179,7 +178,6 @@ fun GalleryScreen(
                             }
                         },
                         onLongClick = { item -> viewModel.toggleSelection(item.id) },
-                        onPinchColumnChange = viewModel::setGridColumns,
                     )
                 }
             }
@@ -232,7 +230,11 @@ private fun GalleryTopBar(
                     Icon(Icons.Default.Close, contentDescription = "Clear selection")
                 }
             } else {
-                IconButton(onClick = onRefresh, enabled = !isRefreshing) {
+                IconButton(
+                    onClick = onRefresh,
+                    enabled = !isRefreshing,
+                    colors = AuraIconDefaults.iconButtonColors(),
+                ) {
                     if (isRefreshing) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(22.dp),
@@ -253,14 +255,14 @@ private fun GalleryTopBar(
                     .padding(bottom = 4.dp),
                 horizontalArrangement = Arrangement.End,
             ) {
-                IconButton(onClick = onToggleSearch) {
-                    Icon(Icons.Default.Search, contentDescription = "Search")
+                IconButton(onClick = onToggleSearch, colors = AuraIconDefaults.iconButtonColors()) {
+                    Icon(Icons.Default.Search, contentDescription = "Search", tint = TextPrimary)
                 }
-                IconButton(onClick = onShowSort) {
-                    Icon(Icons.Default.Sort, contentDescription = "Sort")
+                IconButton(onClick = onShowSort, colors = AuraIconDefaults.iconButtonColors()) {
+                    Icon(Icons.Default.Sort, contentDescription = "Sort", tint = TextPrimary)
                 }
-                IconButton(onClick = onToggleGrid) {
-                    Icon(Icons.Default.GridView, contentDescription = "Grid size")
+                IconButton(onClick = onToggleGrid, colors = AuraIconDefaults.iconButtonColors()) {
+                    Icon(Icons.Default.GridView, contentDescription = "Grid size", tint = TextPrimary)
                 }
             }
         }
