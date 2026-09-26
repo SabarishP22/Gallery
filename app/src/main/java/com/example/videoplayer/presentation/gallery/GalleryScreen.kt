@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SdStorage
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.Wallpaper
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material3.CircularProgressIndicator
@@ -45,6 +46,8 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -208,6 +211,8 @@ fun GalleryScreen(
                 shareMedia(context, state.allMedia.filter { it.id in state.selectedIds })
             },
             onOpenStorage = viewModel::openStorageDialog,
+            galleryGridVisible = state.galleryGridVisible,
+            onToggleGalleryGridVisible = viewModel::toggleGalleryGridVisible,
         )
 
         GallerySearchBar(
@@ -235,97 +240,111 @@ fun GalleryScreen(
         )
 
         Box(modifier = Modifier.fillMaxSize()) {
-            when {
-                state.isLoading && state.allMedia.isEmpty() -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier.align(Alignment.Center),
-                        color = AuroraCyan,
-                    )
-                }
-                state.errorMessage != null && state.allMedia.isEmpty() -> {
-                    EmptyState(
-                        modifier = Modifier.align(Alignment.Center),
-                        message = state.errorMessage ?: "Something went wrong.",
-                    )
-                }
-                state.allMedia.isEmpty() -> {
-                    EmptyState(
-                        modifier = Modifier.align(Alignment.Center),
-                        message = if (state.searchQuery.isNotBlank()) "No matches for your search." else "No media found on this device.",
-                    )
-                }
-                else -> {
-                    HorizontalPager(
-                        state = filterPagerState,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .graphicsLayer { clip = false },
-                        beyondViewportPageCount = 0,
-                        userScrollEnabled = !state.selectionMode,
-                        flingBehavior = pagerFling,
-                        key = { page -> tabFilters[page].name },
-                    ) { page ->
-                        GalleryFilterPage(
-                            pageFilter = tabFilters[page],
-                            rows = when (tabFilters[page]) {
-                                MediaFilter.ALL -> rowsAll
-                                MediaFilter.IMAGES -> rowsImages
-                                MediaFilter.VIDEOS -> rowsVideos
-                            },
-                            gridState = when (tabFilters[page]) {
-                                MediaFilter.ALL -> gridStateAll
-                                MediaFilter.IMAGES -> gridStateImages
-                                MediaFilter.VIDEOS -> gridStateVideos
-                            },
-                            gridColumns = state.gridColumns,
-                            searchQuery = state.searchQuery,
-                            selectedIds = state.selectedIds,
-                            selectionMode = state.selectionMode,
-                            swipeSelectScope = scope,
-                            onSwipeSelectMedia = viewModel::onSwipeSelectMedia,
-                            onSwipeSelectFinished = viewModel::onSwipeSelectFinished,
-                            onOpenMedia = onOpenMedia,
-                            onToggleSelection = viewModel::toggleSelection,
-                            onBeginSelection = viewModel::beginSelection,
-                            onSaveGridScroll = viewModel::saveGridScroll,
-                        )
+            val gridFadeMillis = 2_500
+            androidx.compose.animation.AnimatedVisibility(
+                visible = state.galleryGridVisible,
+                enter = fadeIn(animationSpec = tween(durationMillis = gridFadeMillis)),
+                exit = fadeOut(animationSpec = tween(durationMillis = gridFadeMillis)),
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    when {
+                        state.isLoading && state.allMedia.isEmpty() -> {
+                            CircularProgressIndicator(
+                                modifier = Modifier.align(Alignment.Center),
+                                color = AuroraCyan,
+                            )
+                        }
+                        state.errorMessage != null && state.allMedia.isEmpty() -> {
+                            EmptyState(
+                                modifier = Modifier.align(Alignment.Center),
+                                message = state.errorMessage ?: "Something went wrong.",
+                            )
+                        }
+                        state.allMedia.isEmpty() -> {
+                            EmptyState(
+                                modifier = Modifier.align(Alignment.Center),
+                                message = if (state.searchQuery.isNotBlank()) {
+                                    "No matches for your search."
+                                } else {
+                                    "No media found on this device."
+                                },
+                            )
+                        }
+                        else -> {
+                            HorizontalPager(
+                                state = filterPagerState,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .graphicsLayer { clip = false },
+                                beyondViewportPageCount = 0,
+                                userScrollEnabled = !state.selectionMode,
+                                flingBehavior = pagerFling,
+                                key = { page -> tabFilters[page].name },
+                            ) { page ->
+                                GalleryFilterPage(
+                                    pageFilter = tabFilters[page],
+                                    rows = when (tabFilters[page]) {
+                                        MediaFilter.ALL -> rowsAll
+                                        MediaFilter.IMAGES -> rowsImages
+                                        MediaFilter.VIDEOS -> rowsVideos
+                                    },
+                                    gridState = when (tabFilters[page]) {
+                                        MediaFilter.ALL -> gridStateAll
+                                        MediaFilter.IMAGES -> gridStateImages
+                                        MediaFilter.VIDEOS -> gridStateVideos
+                                    },
+                                    gridColumns = state.gridColumns,
+                                    searchQuery = state.searchQuery,
+                                    selectedIds = state.selectedIds,
+                                    selectionMode = state.selectionMode,
+                                    swipeSelectScope = scope,
+                                    onSwipeSelectMedia = viewModel::onSwipeSelectMedia,
+                                    onSwipeSelectFinished = viewModel::onSwipeSelectFinished,
+                                    onOpenMedia = onOpenMedia,
+                                    onToggleSelection = viewModel::toggleSelection,
+                                    onBeginSelection = viewModel::beginSelection,
+                                    onSaveGridScroll = viewModel::saveGridScroll,
+                                )
+                            }
+                        }
                     }
-                }
-            }
 
-            val activeGridState = when (state.filter) {
-                MediaFilter.ALL -> gridStateAll
-                MediaFilter.IMAGES -> gridStateImages
-                MediaFilter.VIDEOS -> gridStateVideos
-            }
-            if (state.gridRows.isNotEmpty() && state.viewerMediaId == null) {
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .padding(end = 16.dp, bottom = 24.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    SmallFloatingActionButton(
-                        onClick = {
-                            scope.launch {
-                                activeGridState.animateScrollToItem(0)
-                            }
-                        },
-                        containerColor = DeepSpaceElevated,
-                        contentColor = TextPrimary,
-                    ) {
-                        Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Scroll to top")
+                    val activeGridState = when (state.filter) {
+                        MediaFilter.ALL -> gridStateAll
+                        MediaFilter.IMAGES -> gridStateImages
+                        MediaFilter.VIDEOS -> gridStateVideos
                     }
-                    SmallFloatingActionButton(
-                        onClick = {
-                            scope.launch {
-                                activeGridState.animateScrollToItem(state.gridRows.lastIndex)
+                    if (state.gridRows.isNotEmpty() && state.viewerMediaId == null) {
+                        Column(
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .padding(end = 16.dp, bottom = 24.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            SmallFloatingActionButton(
+                                onClick = {
+                                    scope.launch {
+                                        activeGridState.animateScrollToItem(0)
+                                    }
+                                },
+                                containerColor = DeepSpaceElevated,
+                                contentColor = TextPrimary,
+                            ) {
+                                Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Scroll to top")
                             }
-                        },
-                        containerColor = DeepSpaceElevated,
-                        contentColor = TextPrimary,
-                    ) {
-                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Scroll to bottom")
+                            SmallFloatingActionButton(
+                                onClick = {
+                                    scope.launch {
+                                        activeGridState.animateScrollToItem(state.gridRows.lastIndex)
+                                    }
+                                },
+                                containerColor = DeepSpaceElevated,
+                                contentColor = TextPrimary,
+                            ) {
+                                Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Scroll to bottom")
+                            }
+                        }
                     }
                 }
             }
@@ -350,6 +369,8 @@ private fun GalleryTopBar(
     onDeleteSelection: () -> Unit,
     onShareSelection: () -> Unit,
     onOpenStorage: () -> Unit,
+    galleryGridVisible: Boolean,
+    onToggleGalleryGridVisible: () -> Unit,
 ) {
     var showSortPicker by remember { mutableStateOf(false) }
 
@@ -424,6 +445,20 @@ private fun GalleryTopBar(
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                IconButton(
+                    onClick = onToggleGalleryGridVisible,
+                    colors = AuraIconDefaults.iconButtonColors(),
+                ) {
+                    Icon(
+                        Icons.Outlined.Wallpaper,
+                        contentDescription = if (galleryGridVisible) {
+                            "Hide gallery to view background"
+                        } else {
+                            "Show gallery"
+                        },
+                        tint = if (galleryGridVisible) TextPrimary else AuroraCyan,
+                    )
+                }
                 IconButton(
                     onClick = onOpenStorage,
                     colors = AuraIconDefaults.iconButtonColors(),

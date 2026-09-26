@@ -235,6 +235,11 @@ class GalleryViewModel(
         scheduleRecomputeFilters()
     }
 
+    fun toggleGalleryGridVisible() {
+        if (_uiState.value.selectionMode) return
+        _uiState.update { it.copy(galleryGridVisible = !it.galleryGridVisible) }
+    }
+
     fun toggleGridColumns() {
         _uiState.update {
             val next = when (it.gridColumns) {
@@ -275,6 +280,7 @@ class GalleryViewModel(
     }
 
     fun beginSelection(id: Long) {
+        _uiState.update { it.copy(galleryGridVisible = true) }
         _uiState.update { state ->
             val selected = state.selectedIds.toMutableSet()
             selected.add(id)
