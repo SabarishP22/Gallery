@@ -3,6 +3,7 @@ package com.example.videoplayer.data.repository
 import android.net.Uri
 import com.example.videoplayer.data.source.WallpaperFileStorage
 import com.example.videoplayer.data.source.WallpaperPreferencesDataSource
+import com.example.videoplayer.domain.model.SavedWallpaper
 import com.example.videoplayer.domain.model.WallpaperSettings
 import com.example.videoplayer.domain.repository.WallpaperRepository
 import kotlinx.coroutines.flow.Flow
@@ -23,11 +24,19 @@ class WallpaperRepositoryImpl(
         preferencesDataSource.clear()
     }
 
-    override suspend fun persistFromSourceUri(sourceUri: Uri): Result<String> {
-        return runCatching { fileStorage.persistFromSourceUri(sourceUri) }
+    override suspend fun persistFromSourceUri(sourceUri: Uri): Result<SavedWallpaper> {
+        return runCatching {
+            val persisted = fileStorage.persistFromSourceUri(sourceUri)
+            SavedWallpaper(
+                uri = persisted.uriString,
+                contentVersion = persisted.contentVersion,
+            )
+        }
     }
 
     override fun storedFileUri(): String? = fileStorage.storedFileUri()
+
+    override fun storedContentVersion(): Long = fileStorage.storedContentVersion()
 
     override fun deleteStoredFile() {
         fileStorage.deleteStoredWallpaper()
@@ -46,7 +55,7 @@ class WallpaperRepositoryImpl(
         if (legacy.startsWith("file://")) return
         runCatching {
             val persisted = fileStorage.persistFromSourceUri(Uri.parse(legacy))
-            preferencesDataSource.save(persisted, settings.blurRadiusDp)
+            preferencesDataSource.save(persisted.uriString, settings.blurRadiusDp)
         }.onFailure {
             preferencesDataSource.clear()
             fileStorage.deleteStoredWallpaper()

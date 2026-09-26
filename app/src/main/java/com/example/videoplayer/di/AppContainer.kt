@@ -42,8 +42,8 @@ class AppContainer(application: Application) {
     val trashMediaUseCase = TrashMediaUseCase(mediaRepository)
     val observeWallpaperSettingsUseCase = ObserveWallpaperSettingsUseCase(wallpaperRepository)
     val migrateWallpaperUseCase = MigrateWallpaperUseCase(wallpaperRepository)
-    val saveWallpaperUseCase = SaveWallpaperUseCase(wallpaperRepository, syncWallpaperLauncherUseCase)
-    val clearWallpaperUseCase = ClearWallpaperUseCase(wallpaperRepository, syncWallpaperLauncherUseCase)
+    val saveWallpaperUseCase = SaveWallpaperUseCase(wallpaperRepository)
+    val clearWallpaperUseCase = ClearWallpaperUseCase(wallpaperRepository)
     val getViewerPagerMediaUseCase = GetViewerPagerMediaUseCase(filterAndSortMediaUseCase)
 
     fun filterAndSortMediaUseCase(): FilterAndSortMediaUseCase = filterAndSortMediaUseCase

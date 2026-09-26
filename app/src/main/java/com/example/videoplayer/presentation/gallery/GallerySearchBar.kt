@@ -9,8 +9,12 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -44,6 +48,7 @@ import com.example.videoplayer.presentation.theme.TextSecondary
 fun GallerySearchBar(
     visible: Boolean,
     query: String,
+    isSearchFiltering: Boolean,
     onQueryChange: (String) -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
@@ -102,21 +107,35 @@ fun GallerySearchBar(
                     }
                 },
                 trailingIcon = {
-                    if (query.isNotEmpty()) {
-                        IconButton(onClick = { onQueryChange("") }) {
-                            Icon(
-                                Icons.Default.Close,
-                                contentDescription = "Clear search",
-                                tint = AuroraCyan,
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(end = 4.dp),
+                    ) {
+                        if (isSearchFiltering && query.isNotEmpty()) {
+                            CircularProgressIndicator(
+                                modifier = Modifier
+                                    .padding(end = 6.dp)
+                                    .size(20.dp),
+                                strokeWidth = 2.dp,
+                                color = AuroraCyan,
                             )
                         }
-                    } else {
-                        Icon(
-                            Icons.Default.Search,
-                            contentDescription = null,
-                            tint = TextSecondary,
-                            modifier = Modifier.padding(end = 12.dp),
-                        )
+                        if (query.isNotEmpty()) {
+                            IconButton(onClick = { onQueryChange("") }) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Clear search",
+                                    tint = AuroraCyan,
+                                )
+                            }
+                        } else {
+                            Icon(
+                                Icons.Default.Search,
+                                contentDescription = null,
+                                tint = TextSecondary,
+                                modifier = Modifier.padding(end = 12.dp),
+                            )
+                        }
                     }
                 },
                 singleLine = true,

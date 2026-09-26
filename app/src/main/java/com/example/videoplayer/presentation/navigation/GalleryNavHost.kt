@@ -37,6 +37,7 @@ fun GalleryNavHost(
     GalleryBackground(
         wallpaperUri = state.wallpaperUri,
         wallpaperBlurDp = state.wallpaperBlurDp,
+        wallpaperContentVersion = state.wallpaperContentVersion,
         modifier = Modifier.fillMaxSize(),
     ) {
         Box(modifier = Modifier.fillMaxSize()) {

@@ -11,6 +11,8 @@ import com.example.videoplayer.domain.model.TrashDeleteRequest
 import com.example.videoplayer.domain.usecase.FilterAndSortMediaUseCase
 import com.example.videoplayer.domain.usecase.TrashMediaUseCase
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,7 +20,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 class GalleryViewModel(
     private val appContainer: AppContainer,
@@ -49,10 +50,14 @@ class GalleryViewModel(
         viewModelScope.launch {
             runCatching { migrateWallpaperUseCase() }
             observeWallpaperSettingsUseCase().collect { settings ->
+                val contentVersion = settings.imageUri?.let {
+                    appContainer.wallpaperRepository.storedContentVersion()
+                } ?: 0L
                 _uiState.update {
                     it.copy(
                         wallpaperUri = settings.imageUri,
                         wallpaperBlurDp = settings.blurRadiusDp,
+                        wallpaperContentVersion = contentVersion,
                     )
                 }
                 if (settings.imageUri != lastSyncedWallpaperUri) {
@@ -154,14 +159,18 @@ class GalleryViewModel(
                         gridRowsAll = emptyList(),
                         gridRowsImages = emptyList(),
                         gridRowsVideos = emptyList(),
+                        isSearchFiltering = false,
                     )
                 }
                 return@launch
             }
-            val updated = withContext(Dispatchers.Default) {
-                computeAllTabs(snapshot)
+            if (snapshot.searchQuery.isNotBlank()) {
+                _uiState.update { it.copy(isSearchFiltering = true) }
             }
-            _uiState.value = updated
+            val updated = withContext(Dispatchers.Default) {
+                computeAllTabs(_uiState.value)
+            }
+            _uiState.value = updated.copy(isSearchFiltering = false)
         }
     }
 
@@ -209,7 +218,12 @@ class GalleryViewModel(
     }
 
     fun setSearchQuery(query: String) {
-        _uiState.update { it.copy(searchQuery = query) }
+        _uiState.update {
+            it.copy(
+                searchQuery = query,
+                isSearchFiltering = query.isNotBlank(),
+            )
+        }
         searchDebounceJob?.cancel()
         searchDebounceJob = viewModelScope.launch {
             delay(250)
@@ -383,15 +397,17 @@ class GalleryViewModel(
     fun saveWallpaper(uri: Uri, blurDp: Float) {
         viewModelScope.launch {
             saveWallpaperUseCase(uri, blurDp)
-                .onSuccess { persistedUri ->
-                    lastSyncedWallpaperUri = persistedUri
+                .onSuccess { saved ->
+                    lastSyncedWallpaperUri = saved.uri
                     _uiState.update {
                         it.copy(
-                            wallpaperUri = persistedUri,
+                            wallpaperUri = saved.uri,
                             wallpaperBlurDp = blurDp,
+                            wallpaperContentVersion = saved.contentVersion,
                             wallpaperDialogMedia = null,
                         )
                     }
+                    syncLauncherInBackground(saved.uri)
                 }
                 .onFailure {
                     _uiState.update { state ->
@@ -412,8 +428,18 @@ class GalleryViewModel(
                 it.copy(
                     wallpaperUri = null,
                     wallpaperBlurDp = 18f,
+                    wallpaperContentVersion = 0L,
                     wallpaperDialogMedia = null,
                 )
+            }
+            syncLauncherInBackground(null)
+        }
+    }
+
+    private fun syncLauncherInBackground(wallpaperUri: String?) {
+        viewModelScope.launch(Dispatchers.IO) {
+            withContext(NonCancellable) {
+                runCatching { appContainer.syncWallpaperLauncherUseCase(wallpaperUri) }
             }
         }
     }

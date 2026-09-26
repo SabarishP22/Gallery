@@ -6,26 +6,34 @@ import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import android.util.Size
-import com.example.videoplayer.domain.model.GalleryMedia
+import coil.request.CachePolicy
 import coil.request.ImageRequest
 import coil.request.videoFrameMillis
+import coil.size.Precision
+import coil.size.Scale
+import com.example.videoplayer.domain.model.GalleryMedia
 
 fun mediaThumbnailRequest(
     context: Context,
     media: GalleryMedia,
     pixelSize: Int = 400,
 ): ImageRequest {
+    val targetSize = pixelSize.coerceIn(128, 512)
     val builder = ImageRequest.Builder(context)
         .data(media.uri)
-        .size(pixelSize)
-        .crossfade(pixelSize >= 800)
+        .size(targetSize)
+        .scale(Scale.FILL)
+        .precision(Precision.INEXACT)
+        .crossfade(false)
         .allowHardware(true)
-        .memoryCacheKey("${media.uri}-thumb-$pixelSize")
-        .diskCacheKey("${media.uri}-thumb-$pixelSize")
+        .memoryCachePolicy(CachePolicy.ENABLED)
+        .diskCachePolicy(CachePolicy.ENABLED)
+        .memoryCacheKey("${media.id}-thumb-$targetSize")
+        .diskCacheKey("${media.id}-thumb-$targetSize")
 
     if (media.isVideo) {
         builder
-            .videoFrameMillis(500L)
+            .videoFrameMillis(0L)
             .allowHardware(false)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             builder.placeholderMemoryCacheKey("video-ph-${media.id}")

@@ -33,8 +33,6 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -43,7 +41,10 @@ import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -98,6 +99,21 @@ fun GalleryScreen(
                 viewModel.setFilter(tabFilters[page.coerceIn(0, tabFilters.lastIndex)])
             }
     }
+
+    LaunchedEffect(state.filter) {
+        val target = tabFilters.indexOf(state.filter).coerceAtLeast(0)
+        if (filterPagerState.currentPage != target && filterPagerState.isScrollInProgress.not()) {
+            filterPagerState.scrollToPage(target)
+        }
+    }
+
+    val pagerFling = PagerDefaults.flingBehavior(
+        state = filterPagerState,
+        snapAnimationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow,
+        ),
+    )
 
     val rowsAll by remember { derivedStateOf { state.gridRowsAll } }
     val rowsImages by remember { derivedStateOf { state.gridRowsImages } }
@@ -187,6 +203,7 @@ fun GalleryScreen(
         GallerySearchBar(
             visible = showSearch,
             query = state.searchQuery,
+            isSearchFiltering = state.isSearchFiltering,
             onQueryChange = viewModel::setSearchQuery,
             onClose = { showSearch = false },
         )
@@ -230,62 +247,38 @@ fun GalleryScreen(
                 else -> {
                     HorizontalPager(
                         state = filterPagerState,
-                        modifier = Modifier.fillMaxSize(),
-                        beyondViewportPageCount = 1,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer { clip = false },
+                        beyondViewportPageCount = 0,
                         userScrollEnabled = !state.selectionMode,
-                        flingBehavior = PagerDefaults.flingBehavior(state = filterPagerState),
+                        flingBehavior = pagerFling,
                         key = { page -> tabFilters[page].name },
                     ) { page ->
-                        val pageFilter = tabFilters[page]
-                        val pageRows = when (pageFilter) {
-                            MediaFilter.ALL -> rowsAll
-                            MediaFilter.IMAGES -> rowsImages
-                            MediaFilter.VIDEOS -> rowsVideos
-                        }
-                        val pageGridState = when (pageFilter) {
-                            MediaFilter.ALL -> gridStateAll
-                            MediaFilter.IMAGES -> gridStateImages
-                            MediaFilter.VIDEOS -> gridStateVideos
-                        }
-                        if (pageRows.isEmpty()) {
-                            EmptyState(
-                                modifier = Modifier.fillMaxSize(),
-                                message = when (pageFilter) {
-                                    MediaFilter.IMAGES -> "No images in this view."
-                                    MediaFilter.VIDEOS -> "No videos in this view."
-                                    else -> if (state.searchQuery.isNotBlank()) {
-                                        "No matches for your search."
-                                    } else {
-                                        "No media found on this device."
-                                    }
-                                },
-                            )
-                        } else {
-                            MediaGrid(
-                                rows = pageRows,
-                                columns = state.gridColumns,
-                                gridState = pageGridState,
-                                selectedIds = state.selectedIds,
-                                selectionMode = state.selectionMode,
-                                swipeSelectScope = scope,
-                                onSwipeSelectMedia = viewModel::onSwipeSelectMedia,
-                                onSwipeSelectFinished = viewModel::onSwipeSelectFinished,
-                                onClick = { item ->
-                                    if (state.selectionMode) {
-                                        viewModel.toggleSelection(item.id)
-                                    } else {
-                                        viewModel.saveGridScroll(
-                                            pageGridState.firstVisibleItemIndex,
-                                            pageGridState.firstVisibleItemScrollOffset,
-                                        )
-                                        onOpenMedia(item.id)
-                                    }
-                                },
-                                onLongClick = { item ->
-                                    viewModel.beginSelection(item.id)
-                                },
-                            )
-                        }
+                        GalleryFilterPage(
+                            pageFilter = tabFilters[page],
+                            rows = when (tabFilters[page]) {
+                                MediaFilter.ALL -> rowsAll
+                                MediaFilter.IMAGES -> rowsImages
+                                MediaFilter.VIDEOS -> rowsVideos
+                            },
+                            gridState = when (tabFilters[page]) {
+                                MediaFilter.ALL -> gridStateAll
+                                MediaFilter.IMAGES -> gridStateImages
+                                MediaFilter.VIDEOS -> gridStateVideos
+                            },
+                            gridColumns = state.gridColumns,
+                            searchQuery = state.searchQuery,
+                            selectedIds = state.selectedIds,
+                            selectionMode = state.selectionMode,
+                            swipeSelectScope = scope,
+                            onSwipeSelectMedia = viewModel::onSwipeSelectMedia,
+                            onSwipeSelectFinished = viewModel::onSwipeSelectFinished,
+                            onOpenMedia = onOpenMedia,
+                            onToggleSelection = viewModel::toggleSelection,
+                            onBeginSelection = viewModel::beginSelection,
+                            onSaveGridScroll = viewModel::saveGridScroll,
+                        )
                     }
                 }
             }
@@ -347,7 +340,15 @@ private fun GalleryTopBar(
     onDeleteSelection: () -> Unit,
     onShareSelection: () -> Unit,
 ) {
-    var showSortMenu by remember { mutableStateOf(false) }
+    var showSortPicker by remember { mutableStateOf(false) }
+
+    if (showSortPicker) {
+        SortPickerDialog(
+            selected = sortOrder,
+            onDismiss = { showSortPicker = false },
+            onSelected = onSortSelected,
+        )
+    }
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -358,7 +359,7 @@ private fun GalleryTopBar(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = if (selectionMode) "$selectedCount selected" else "Aura Gallery",
+                    text = if (selectionMode) "$selectedCount selected" else "PixLab",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground,
@@ -422,29 +423,15 @@ private fun GalleryTopBar(
                         tint = if (searchActive || searchQuery.isNotEmpty()) AuroraCyan else TextPrimary,
                     )
                 }
-                Box {
-                    IconButton(onClick = { showSortMenu = true }, colors = AuraIconDefaults.iconButtonColors()) {
-                        Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = "Sort", tint = TextPrimary)
-                    }
-                    DropdownMenu(
-                        expanded = showSortMenu,
-                        onDismissRequest = { showSortMenu = false },
-                    ) {
-                        SortOrder.entries.forEach { order ->
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        text = sortLabel(order),
-                                        color = if (order == sortOrder) AuroraCyan else TextPrimary,
-                                    )
-                                },
-                                onClick = {
-                                    onSortSelected(order)
-                                    showSortMenu = false
-                                },
-                            )
-                        }
-                    }
+                IconButton(
+                    onClick = { showSortPicker = true },
+                    colors = AuraIconDefaults.iconButtonColors(),
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.Sort,
+                        contentDescription = "Sort",
+                        tint = AuroraCyan,
+                    )
                 }
                 IconButton(onClick = onToggleGrid, colors = AuraIconDefaults.iconButtonColors()) {
                     Icon(Icons.Default.GridView, contentDescription = "Grid size", tint = TextPrimary)
@@ -455,7 +442,7 @@ private fun GalleryTopBar(
 }
 
 @Composable
-private fun EmptyState(modifier: Modifier = Modifier, message: String) {
+internal fun EmptyState(modifier: Modifier = Modifier, message: String) {
     Column(modifier = modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Icon(
             imageVector = Icons.Outlined.PhotoLibrary,
@@ -465,14 +452,6 @@ private fun EmptyState(modifier: Modifier = Modifier, message: String) {
         )
         Text(text = message, color = TextSecondary, style = MaterialTheme.typography.bodyMedium)
     }
-}
-
-private fun sortLabel(order: SortOrder): String = when (order) {
-    SortOrder.DATE_NEWEST -> "Newest first"
-    SortOrder.DATE_OLDEST -> "Oldest first"
-    SortOrder.NAME_ASC -> "Name (A–Z)"
-    SortOrder.NAME_DESC -> "Name (Z–A)"
-    SortOrder.SIZE_LARGEST -> "Largest first"
 }
 
 private fun shareMedia(context: android.content.Context, items: List<GalleryMedia>) {

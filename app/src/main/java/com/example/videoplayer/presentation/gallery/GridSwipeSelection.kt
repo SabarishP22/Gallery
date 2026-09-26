@@ -17,7 +17,7 @@ fun Modifier.gridSwipeSelection(
     onDragFinished: () -> Unit,
 ): Modifier {
     if (!enabled) return this
-    return pointerInput(gridState, enabled) {
+    return pointerInput(enabled) {
         detectDragGestures(
             onDragStart = { offset ->
                 mediaIdAt(gridState, offset)?.let { onMediaAtPosition(it, true) }

@@ -23,13 +23,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import kotlinx.coroutines.CoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
@@ -39,6 +40,7 @@ import com.example.videoplayer.presentation.theme.DeepSpace
 import com.example.videoplayer.presentation.theme.TextPrimary
 import com.example.videoplayer.util.formatDuration
 import com.example.videoplayer.util.mediaThumbnailRequest
+import kotlinx.coroutines.CoroutineScope
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -119,12 +121,14 @@ private fun MediaGridItem(
     onLongClick: () -> Unit,
 ) {
     val context = LocalContext.current
-    val thumbSize = remember(gridColumns) {
-        when {
-            gridColumns <= 2 -> 400
-            gridColumns <= 4 -> 280
-            else -> 180
+    val density = LocalDensity.current
+    val thumbSize = remember(gridColumns, density.density) {
+        val cellPx = when {
+            gridColumns <= 2 -> 320
+            gridColumns <= 4 -> 240
+            else -> 160
         }
+        cellPx
     }
     val request = remember(media.id, thumbSize) {
         mediaThumbnailRequest(context, media, thumbSize)
@@ -133,12 +137,13 @@ private fun MediaGridItem(
         modifier = Modifier
             .aspectRatio(1f)
             .clip(RoundedCornerShape(12.dp))
+            .graphicsLayer { clip = true }
             .background(DeepSpace)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick),
     ) {
         AsyncImage(
             model = request,
-            contentDescription = media.displayName,
+            contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize(),
         )
@@ -165,13 +170,13 @@ private fun MediaGridItem(
             )
         }
         if (selectionMode) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        if (selected) AuroraCyan.copy(alpha = 0.28f) else Color.Black.copy(alpha = 0.12f),
-                    ),
-            )
+            if (selected) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(AuroraCyan.copy(alpha = 0.28f)),
+                )
+            }
             Icon(
                 imageVector = Icons.Default.CheckCircle,
                 contentDescription = null,

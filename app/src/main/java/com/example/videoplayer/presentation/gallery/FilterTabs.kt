@@ -1,8 +1,5 @@
 package com.example.videoplayer.presentation.gallery
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -104,16 +101,8 @@ fun FilterTabs(
             ) {
                 tabs.forEachIndexed { index, spec ->
                     val isHighlighted = index == highlightIndex || spec.filter == selected
-                    val labelColor by animateColorAsState(
-                        targetValue = if (isHighlighted) TextPrimary else TextSecondary,
-                        animationSpec = spring(stiffness = Spring.StiffnessMedium),
-                        label = "filterLabel",
-                    )
-                    val iconTint by animateColorAsState(
-                        targetValue = if (isHighlighted) AuroraCyan else TextSecondary.copy(alpha = 0.85f),
-                        animationSpec = spring(stiffness = Spring.StiffnessMedium),
-                        label = "filterIcon",
-                    )
+                    val labelColor = if (isHighlighted) TextPrimary else TextSecondary
+                    val iconTint = if (isHighlighted) AuroraCyan else TextSecondary.copy(alpha = 0.85f)
                     Box(
                         modifier = Modifier
                             .weight(1f)

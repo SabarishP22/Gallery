@@ -9,77 +9,86 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import coil.request.CachePolicy
 import coil.request.ImageRequest
+import coil.size.Precision
+import coil.size.Scale
 import com.example.videoplayer.presentation.theme.AuroraCyan
 import com.example.videoplayer.presentation.theme.AuroraViolet
 import com.example.videoplayer.presentation.theme.DeepSpace
 import com.example.videoplayer.presentation.theme.DeepSpaceElevated
+import java.io.File
 
 @Composable
 fun GalleryBackground(
     wallpaperUri: String?,
     wallpaperBlurDp: Float,
+    wallpaperContentVersion: Long,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
     val blurPx = with(LocalDensity.current) { wallpaperBlurDp.coerceIn(0f, 40f).dp.toPx() }
-    val wallpaperRequest = remember(wallpaperUri) {
-        wallpaperUri?.let {
+    val cacheKey = remember(wallpaperUri, wallpaperContentVersion) {
+        "wallpaper-${wallpaperUri.orEmpty()}-v$wallpaperContentVersion"
+    }
+    val wallpaperRequest = remember(wallpaperUri, wallpaperContentVersion, cacheKey) {
+        wallpaperUri?.let { uriString ->
+            val data = Uri.parse(uriString).path?.let { File(it) } ?: Uri.parse(uriString)
             ImageRequest.Builder(context)
-                .data(Uri.parse(it))
-                .crossfade(400)
+                .data(data)
+                .size(1280)
+                .scale(Scale.FILL)
+                .precision(Precision.INEXACT)
+                .memoryCacheKey(cacheKey)
+                .diskCacheKey(cacheKey)
+                .diskCachePolicy(CachePolicy.ENABLED)
+                .memoryCachePolicy(CachePolicy.ENABLED)
+                .crossfade(false)
+                .allowHardware(true)
                 .build()
         }
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer {
-                    compositingStrategy = CompositingStrategy.Offscreen
-                },
-        ) {
-            if (wallpaperRequest != null) {
-                AsyncImage(
-                    model = wallpaperRequest,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .then(
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && blurPx > 0.5f) {
-                                Modifier.graphicsLayer {
-                                    renderEffect = androidx.compose.ui.graphics.BlurEffect(
-                                        blurPx,
-                                        blurPx,
-                                        androidx.compose.ui.graphics.TileMode.Clamp,
-                                    )
-                                }
-                            } else if (blurPx > 0.5f) {
-                                Modifier.graphicsLayer {
-                                    scaleX = 1.15f
-                                    scaleY = 1.15f
-                                }
-                            } else {
-                                Modifier
-                            },
-                        ),
-                )
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(DeepSpace.copy(alpha = 0.55f)),
-                )
-            } else {
+        if (wallpaperRequest != null) {
+            AsyncImage(
+                model = wallpaperRequest,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && blurPx > 0.5f) {
+                            Modifier.graphicsLayer {
+                                renderEffect = androidx.compose.ui.graphics.BlurEffect(
+                                    blurPx,
+                                    blurPx,
+                                    androidx.compose.ui.graphics.TileMode.Clamp,
+                                )
+                            }
+                        } else if (blurPx > 0.5f) {
+                            Modifier.graphicsLayer {
+                                scaleX = 1.12f
+                                scaleY = 1.12f
+                            }
+                        } else {
+                            Modifier
+                        },
+                    ),
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(DeepSpace.copy(alpha = 0.55f)),
+            )
+        } else {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -103,7 +112,6 @@ fun GalleryBackground(
                         ),
                     ),
             )
-            }
         }
         Box(modifier = Modifier.fillMaxSize()) {
             content()

@@ -40,7 +40,7 @@ class AuraGalleryApplication : Application(), ImageLoaderFactory {
                     .maxSizePercent(0.04)
                     .build()
             }
-            .crossfade(180)
+            .crossfade(false)
             .respectCacheHeaders(false)
             .diskCachePolicy(CachePolicy.ENABLED)
             .memoryCachePolicy(CachePolicy.ENABLED)
