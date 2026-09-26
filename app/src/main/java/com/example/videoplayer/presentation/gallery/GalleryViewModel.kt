@@ -11,7 +11,6 @@ import com.example.videoplayer.domain.model.TrashDeleteRequest
 import com.example.videoplayer.domain.usecase.FilterAndSortMediaUseCase
 import com.example.videoplayer.domain.usecase.GetStorageStatsUseCase
 import com.example.videoplayer.domain.usecase.TrashMediaUseCase
-import com.example.videoplayer.util.WallpaperImageCache
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
@@ -53,8 +52,8 @@ class GalleryViewModel(
         viewModelScope.launch {
             runCatching { migrateWallpaperUseCase() }
             observeWallpaperSettingsUseCase().collect { settings ->
-                _uiState.update {
-                    it.copy(
+                _uiState.update { state ->
+                    state.copy(
                         wallpaperUri = settings.imageUri,
                         wallpaperBlurDp = settings.blurRadiusDp,
                         wallpaperContentVersion = settings.contentRevision,
@@ -446,57 +445,37 @@ class GalleryViewModel(
 
     fun saveWallpaper(uri: Uri, blurDp: Float) {
         viewModelScope.launch {
-            val previous = _uiState.value
-            saveWallpaperUseCase(uri, blurDp)
-                .onSuccess { saved ->
-                    val context = appContainer.application
-                    WallpaperImageCache.invalidate(
-                        context,
-                        previous.wallpaperUri,
-                        previous.wallpaperContentVersion,
-                        previous.wallpaperBlurDp,
+            val result = withContext(Dispatchers.IO) {
+                saveWallpaperUseCase(uri, blurDp)
+            }
+            result.onSuccess { saved ->
+                lastSyncedWallpaperUri = saved.uri
+                _uiState.update {
+                    it.copy(
+                        wallpaperUri = saved.uri,
+                        wallpaperBlurDp = blurDp,
+                        wallpaperContentVersion = saved.contentRevision,
+                        wallpaperDialogMedia = null,
+                        snackbarMessage = "Background updated successfully",
                     )
-                    WallpaperImageCache.invalidate(
-                        context,
-                        saved.uri,
-                        saved.contentRevision,
-                        blurDp,
+                }
+                syncLauncherInBackground(saved.uri)
+            }.onFailure {
+                _uiState.update { state ->
+                    state.copy(
+                        errorMessage = "Could not save background. Try another image.",
+                        wallpaperDialogMedia = null,
                     )
-                    WallpaperImageCache.invalidateAllWallpaperEntries(context)
-                    lastSyncedWallpaperUri = saved.uri
-                    _uiState.update {
-                        it.copy(
-                            wallpaperUri = saved.uri,
-                            wallpaperBlurDp = blurDp,
-                            wallpaperContentVersion = saved.contentRevision,
-                            wallpaperDialogMedia = null,
-                            snackbarMessage = "Background updated",
-                        )
-                    }
-                    syncLauncherInBackground(saved.uri)
                 }
-                .onFailure {
-                    _uiState.update { state ->
-                        state.copy(
-                            errorMessage = "Could not save background. Try another image.",
-                            wallpaperDialogMedia = null,
-                        )
-                    }
-                }
+            }
         }
     }
 
     fun clearWallpaper() {
         viewModelScope.launch {
-            val previous = _uiState.value
-            val revision = clearWallpaperUseCase()
-            WallpaperImageCache.invalidate(
-                appContainer.application,
-                previous.wallpaperUri,
-                previous.wallpaperContentVersion,
-                previous.wallpaperBlurDp,
-            )
-            WallpaperImageCache.invalidateAllWallpaperEntries(appContainer.application)
+            val revision = withContext(Dispatchers.IO) {
+                clearWallpaperUseCase()
+            }
             lastSyncedWallpaperUri = null
             _uiState.update {
                 it.copy(

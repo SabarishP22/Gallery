@@ -47,7 +47,7 @@ class WallpaperRepositoryImpl(
         val settings = preferencesDataSource.settings.first()
         val stored = fileStorage.storedFileUri()
         if (stored != null) {
-            if (settings.imageUri != stored) {
+            if (settings.imageUri != stored || settings.contentRevision == 0L) {
                 preferencesDataSource.save(stored, settings.blurRadiusDp)
             }
             return

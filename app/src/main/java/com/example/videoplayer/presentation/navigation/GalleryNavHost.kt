@@ -15,7 +15,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.zIndex
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.videoplayer.AuraGalleryApplication
@@ -38,8 +37,9 @@ fun GalleryNavHost(
     val viewerId = state.viewerMediaId
     val snackbarHostState = remember { SnackbarHostState() }
 
-    LaunchedEffect(state.snackbarMessage) {
+    LaunchedEffect(state.snackbarMessage, viewerId) {
         val message = state.snackbarMessage ?: return@LaunchedEffect
+        if (viewerId != null) return@LaunchedEffect
         snackbarHostState.showSnackbar(
             message = message,
             duration = SnackbarDuration.Short,
@@ -54,10 +54,9 @@ fun GalleryNavHost(
     Scaffold(
         containerColor = Color.Transparent,
         snackbarHost = {
-            SnackbarHost(
-                hostState = snackbarHostState,
-                modifier = Modifier.zIndex(2000f),
-            )
+            if (viewerId == null) {
+                SnackbarHost(hostState = snackbarHostState)
+            }
         },
     ) {
         GalleryBackground(
@@ -84,6 +83,8 @@ fun GalleryNavHost(
                             startIndex = index,
                             onBack = { viewModel.closeViewer() },
                             onWallpaperRequest = { media -> viewModel.openWallpaperDialog(media) },
+                            snackbarMessage = state.snackbarMessage,
+                            onSnackbarDismiss = viewModel::clearSnackbarMessage,
                         )
                     }
                 }
