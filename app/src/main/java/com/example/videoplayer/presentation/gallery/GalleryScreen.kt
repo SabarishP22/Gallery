@@ -38,9 +38,11 @@ import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -75,23 +77,18 @@ fun GalleryScreen(
     val tabFilters = remember { listOf(MediaFilter.ALL, MediaFilter.IMAGES, MediaFilter.VIDEOS) }
     val filterPagerState = rememberPagerState(
         initialPage = tabFilters.indexOf(state.filter).coerceAtLeast(0),
-    ) { tabFilters.size }
+        pageCount = { tabFilters.size },
+    )
 
-    LaunchedEffect(state.filter) {
-        val index = tabFilters.indexOf(state.filter).coerceAtLeast(0)
-        if (filterPagerState.currentPage != index && !filterPagerState.isScrollInProgress) {
-            filterPagerState.animateScrollToPage(index)
-        }
+    val tabIndicatorIndex by remember {
+        derivedStateOf { filterPagerState.currentPage.coerceIn(0, tabFilters.lastIndex) }
     }
 
     LaunchedEffect(filterPagerState) {
-        snapshotFlow { filterPagerState.settledPage }
+        snapshotFlow { filterPagerState.currentPage }
             .distinctUntilChanged()
             .collect { page ->
-                val filter = tabFilters[page]
-                if (state.filter != filter) {
-                    viewModel.setFilter(filter)
-                }
+                viewModel.setFilter(tabFilters[page])
             }
     }
     val context = LocalContext.current
@@ -122,10 +119,12 @@ fun GalleryScreen(
         }
     }
 
-    val gridState = rememberLazyGridState(
+    val gridStateAll = rememberLazyGridState(
         initialFirstVisibleItemIndex = state.gridScrollIndex,
         initialFirstVisibleItemScrollOffset = state.gridScrollOffset,
     )
+    val gridStateImages = rememberLazyGridState()
+    val gridStateVideos = rememberLazyGridState()
 
     Column(
         modifier = Modifier
@@ -151,11 +150,13 @@ fun GalleryScreen(
         )
 
         FilterTabs(
-            selected = state.filter,
+            selected = tabFilters[tabIndicatorIndex],
             onSelected = { filter ->
-                viewModel.setFilter(filter)
                 scope.launch {
-                    filterPagerState.animateScrollToPage(tabFilters.indexOf(filter).coerceAtLeast(0))
+                    filterPagerState.animateScrollToPage(
+                        page = tabFilters.indexOf(filter).coerceAtLeast(0),
+                        animationSpec = tween(durationMillis = 220),
+                    )
                 }
             },
             modifier = Modifier
@@ -187,13 +188,20 @@ fun GalleryScreen(
                     HorizontalPager(
                         state = filterPagerState,
                         modifier = Modifier.fillMaxSize(),
-                        beyondViewportPageCount = 1,
+                        beyondViewportPageCount = 0,
+                        key = { page -> tabFilters[page].name },
                     ) { page ->
-                        val pageRows = viewModel.gridRowsForFilter(tabFilters[page])
+                        val pageFilter = tabFilters[page]
+                        val pageRows = state.gridRowsFor(pageFilter)
+                        val pageGridState = when (pageFilter) {
+                            MediaFilter.ALL -> gridStateAll
+                            MediaFilter.IMAGES -> gridStateImages
+                            MediaFilter.VIDEOS -> gridStateVideos
+                        }
                         if (pageRows.isEmpty()) {
                             EmptyState(
                                 modifier = Modifier.fillMaxSize(),
-                                message = when (tabFilters[page]) {
+                                message = when (pageFilter) {
                                     MediaFilter.IMAGES -> "No images in this view."
                                     MediaFilter.VIDEOS -> "No videos in this view."
                                     else -> if (state.searchQuery.isNotBlank()) {
@@ -207,7 +215,7 @@ fun GalleryScreen(
                             MediaGrid(
                                 rows = pageRows,
                                 columns = state.gridColumns,
-                                gridState = gridState,
+                                gridState = pageGridState,
                                 selectedIds = state.selectedIds,
                                 selectionMode = state.selectionMode,
                                 onClick = { item ->
@@ -215,8 +223,8 @@ fun GalleryScreen(
                                         viewModel.toggleSelection(item.id)
                                     } else {
                                         viewModel.saveGridScroll(
-                                            gridState.firstVisibleItemIndex,
-                                            gridState.firstVisibleItemScrollOffset,
+                                            pageGridState.firstVisibleItemIndex,
+                                            pageGridState.firstVisibleItemScrollOffset,
                                         )
                                         onOpenMedia(item.id)
                                     }
@@ -234,6 +242,11 @@ fun GalleryScreen(
                 }
             }
 
+            val activeGridState = when (state.filter) {
+                MediaFilter.ALL -> gridStateAll
+                MediaFilter.IMAGES -> gridStateImages
+                MediaFilter.VIDEOS -> gridStateVideos
+            }
             if (state.gridRows.isNotEmpty() && state.viewerMediaId == null) {
                 Column(
                     modifier = Modifier
@@ -244,7 +257,7 @@ fun GalleryScreen(
                     SmallFloatingActionButton(
                         onClick = {
                             scope.launch {
-                                gridState.animateScrollToItem(0)
+                                activeGridState.animateScrollToItem(0)
                             }
                         },
                         containerColor = DeepSpaceElevated,
@@ -255,7 +268,7 @@ fun GalleryScreen(
                     SmallFloatingActionButton(
                         onClick = {
                             scope.launch {
-                                gridState.animateScrollToItem(state.gridRows.lastIndex)
+                                activeGridState.animateScrollToItem(state.gridRows.lastIndex)
                             }
                         },
                         containerColor = DeepSpaceElevated,

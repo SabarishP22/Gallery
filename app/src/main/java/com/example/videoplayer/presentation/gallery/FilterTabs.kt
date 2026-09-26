@@ -1,8 +1,7 @@
 package com.example.videoplayer.presentation.gallery
 
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -52,10 +51,7 @@ fun FilterTabs(
     val density = LocalDensity.current
     val indicatorOffset by animateDpAsState(
         targetValue = with(density) { (selectedIndex * tabWidthPx).toDp() },
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioLowBouncy,
-            stiffness = Spring.StiffnessMedium,
-        ),
+        animationSpec = tween(durationMillis = 180),
         label = "tabIndicator",
     )
 
@@ -86,7 +82,9 @@ fun FilterTabs(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
-                        .onSizeChanged { if (tabs.size > 0) tabWidthPx = it.width }
+                        .onSizeChanged { size ->
+                            if (tabWidthPx != size.width) tabWidthPx = size.width
+                        }
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,

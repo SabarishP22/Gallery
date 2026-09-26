@@ -8,11 +8,15 @@ import com.example.videoplayer.domain.model.GalleryMedia
 import com.example.videoplayer.domain.model.MediaFilter
 import com.example.videoplayer.domain.model.SortOrder
 import com.example.videoplayer.domain.usecase.FilterAndSortMediaUseCase
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class GalleryViewModel(
     private val appContainer: AppContainer,
@@ -32,6 +36,8 @@ class GalleryViewModel(
 
     private var permissionCheckHandled = false
     private var lastSyncedWallpaperUri: String? = null
+    private var recomputeJob: Job? = null
+    private var searchDebounceJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -117,51 +123,97 @@ class GalleryViewModel(
     }
 
     private fun applyMediaLoaded(media: List<GalleryMedia>) {
-        _uiState.update { state ->
-            val filtered = filterAndSortMediaUseCase(
-                allMedia = media,
-                filter = state.filter,
-                searchQuery = state.searchQuery,
-                sortOrder = state.sortOrder,
-            )
-            state.copy(
+        _uiState.update {
+            it.copy(
                 isLoading = false,
                 isRefreshing = false,
                 allMedia = media,
-                displayItems = filtered,
-                gridRows = buildGalleryGridRows(filtered, state.sortOrder),
             )
+        }
+        scheduleRecomputeFilters()
+    }
+
+    private fun scheduleRecomputeFilters() {
+        recomputeJob?.cancel()
+        recomputeJob = viewModelScope.launch {
+            val snapshot = _uiState.value
+            if (snapshot.allMedia.isEmpty()) {
+                _uiState.update {
+                    it.copy(
+                        displayItems = emptyList(),
+                        displayItemsAll = emptyList(),
+                        displayItemsImages = emptyList(),
+                        displayItemsVideos = emptyList(),
+                        gridRows = emptyList(),
+                        gridRowsAll = emptyList(),
+                        gridRowsImages = emptyList(),
+                        gridRowsVideos = emptyList(),
+                    )
+                }
+                return@launch
+            }
+            val updated = withContext(Dispatchers.Default) {
+                computeAllTabs(snapshot)
+            }
+            _uiState.value = updated
         }
     }
 
-    private fun refreshFilteredLists() {
-        _uiState.update { state ->
-            val filtered = filterAndSortMediaUseCase(
-                allMedia = state.allMedia,
-                filter = state.filter,
-                searchQuery = state.searchQuery,
-                sortOrder = state.sortOrder,
-            )
-            state.copy(
-                displayItems = filtered,
-                gridRows = buildGalleryGridRows(filtered, state.sortOrder),
-            )
+    private fun computeAllTabs(state: GalleryUiState): GalleryUiState {
+        val media = state.allMedia
+        val query = state.searchQuery
+        val sort = state.sortOrder
+        val itemsAll = filterAndSortMediaUseCase(media, MediaFilter.ALL, query, sort)
+        val itemsImages = filterAndSortMediaUseCase(media, MediaFilter.IMAGES, query, sort)
+        val itemsVideos = filterAndSortMediaUseCase(media, MediaFilter.VIDEOS, query, sort)
+        val rowsAll = buildGalleryGridRows(itemsAll, sort)
+        val rowsImages = buildGalleryGridRows(itemsImages, sort)
+        val rowsVideos = buildGalleryGridRows(itemsVideos, sort)
+        val activeRows = when (state.filter) {
+            MediaFilter.ALL -> rowsAll
+            MediaFilter.IMAGES -> rowsImages
+            MediaFilter.VIDEOS -> rowsVideos
         }
+        val activeItems = when (state.filter) {
+            MediaFilter.ALL -> itemsAll
+            MediaFilter.IMAGES -> itemsImages
+            MediaFilter.VIDEOS -> itemsVideos
+        }
+        return state.copy(
+            displayItemsAll = itemsAll,
+            displayItemsImages = itemsImages,
+            displayItemsVideos = itemsVideos,
+            gridRowsAll = rowsAll,
+            gridRowsImages = rowsImages,
+            gridRowsVideos = rowsVideos,
+            displayItems = activeItems,
+            gridRows = activeRows,
+        )
     }
 
     fun setFilter(filter: MediaFilter) {
-        _uiState.update { it.copy(filter = filter) }
-        refreshFilteredLists()
+        _uiState.update { state ->
+            if (state.filter == filter) return@update state
+            state.copy(
+                filter = filter,
+                displayItems = state.displayItemsFor(filter),
+                gridRows = state.gridRowsFor(filter),
+            )
+        }
     }
 
     fun setSearchQuery(query: String) {
         _uiState.update { it.copy(searchQuery = query) }
-        refreshFilteredLists()
+        searchDebounceJob?.cancel()
+        searchDebounceJob = viewModelScope.launch {
+            delay(250)
+            scheduleRecomputeFilters()
+        }
     }
 
     fun setSortOrder(order: SortOrder) {
         _uiState.update { it.copy(sortOrder = order) }
-        refreshFilteredLists()
+        scheduleRecomputeFilters()
     }
 
     fun toggleGridColumns() {
@@ -252,17 +304,6 @@ class GalleryViewModel(
                 )
             }
         }
-    }
-
-    fun gridRowsForFilter(filter: MediaFilter): List<GalleryGridRow> {
-        val state = _uiState.value
-        val filtered = filterAndSortMediaUseCase(
-            allMedia = state.allMedia,
-            filter = filter,
-            searchQuery = state.searchQuery,
-            sortOrder = state.sortOrder,
-        )
-        return buildGalleryGridRows(filtered, state.sortOrder)
     }
 
     fun pagerMediaFor(currentId: Long): Pair<List<GalleryMedia>, Int> {

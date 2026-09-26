@@ -22,7 +22,25 @@ data class GalleryUiState(
     val viewerMediaId: Long? = null,
     val displayItems: List<GalleryMedia> = emptyList(),
     val gridRows: List<GalleryGridRow> = emptyList(),
+    val displayItemsAll: List<GalleryMedia> = emptyList(),
+    val displayItemsImages: List<GalleryMedia> = emptyList(),
+    val displayItemsVideos: List<GalleryMedia> = emptyList(),
+    val gridRowsAll: List<GalleryGridRow> = emptyList(),
+    val gridRowsImages: List<GalleryGridRow> = emptyList(),
+    val gridRowsVideos: List<GalleryGridRow> = emptyList(),
     val wallpaperUri: String? = null,
     val wallpaperBlurDp: Float = 18f,
     val wallpaperDialogMedia: GalleryMedia? = null,
-)
+) {
+    fun gridRowsFor(filter: MediaFilter): List<GalleryGridRow> = when (filter) {
+        MediaFilter.ALL -> gridRowsAll
+        MediaFilter.IMAGES -> gridRowsImages
+        MediaFilter.VIDEOS -> gridRowsVideos
+    }
+
+    fun displayItemsFor(filter: MediaFilter): List<GalleryMedia> = when (filter) {
+        MediaFilter.ALL -> displayItemsAll
+        MediaFilter.IMAGES -> displayItemsImages
+        MediaFilter.VIDEOS -> displayItemsVideos
+    }
+}

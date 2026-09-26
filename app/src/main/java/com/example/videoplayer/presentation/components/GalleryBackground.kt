@@ -6,8 +6,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -29,43 +31,55 @@ fun GalleryBackground(
 ) {
     val context = LocalContext.current
     val blurPx = with(LocalDensity.current) { wallpaperBlurDp.coerceIn(0f, 40f).dp.toPx() }
+    val wallpaperRequest = remember(wallpaperUri) {
+        wallpaperUri?.let {
+            ImageRequest.Builder(context)
+                .data(Uri.parse(it))
+                .crossfade(400)
+                .build()
+        }
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
-        if (wallpaperUri != null) {
-            AsyncImage(
-                model = ImageRequest.Builder(context)
-                    .data(Uri.parse(wallpaperUri))
-                    .crossfade(400)
-                    .build(),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .then(
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && blurPx > 0.5f) {
-                            Modifier.graphicsLayer {
-                                renderEffect = androidx.compose.ui.graphics.BlurEffect(
-                                    blurPx,
-                                    blurPx,
-                                    androidx.compose.ui.graphics.TileMode.Clamp,
-                                )
-                            }
-                        } else if (blurPx > 0.5f) {
-                            Modifier.graphicsLayer {
-                                scaleX = 1.15f
-                                scaleY = 1.15f
-                            }
-                        } else {
-                            Modifier
-                        },
-                    ),
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(DeepSpace.copy(alpha = 0.55f)),
-            )
-        } else {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    compositingStrategy = CompositingStrategy.Offscreen
+                },
+        ) {
+            if (wallpaperRequest != null) {
+                AsyncImage(
+                    model = wallpaperRequest,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .then(
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && blurPx > 0.5f) {
+                                Modifier.graphicsLayer {
+                                    renderEffect = androidx.compose.ui.graphics.BlurEffect(
+                                        blurPx,
+                                        blurPx,
+                                        androidx.compose.ui.graphics.TileMode.Clamp,
+                                    )
+                                }
+                            } else if (blurPx > 0.5f) {
+                                Modifier.graphicsLayer {
+                                    scaleX = 1.15f
+                                    scaleY = 1.15f
+                                }
+                            } else {
+                                Modifier
+                            },
+                        ),
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(DeepSpace.copy(alpha = 0.55f)),
+                )
+            } else {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -89,7 +103,10 @@ fun GalleryBackground(
                         ),
                     ),
             )
+            }
         }
-        content()
+        Box(modifier = Modifier.fillMaxSize()) {
+            content()
+        }
     }
 }
