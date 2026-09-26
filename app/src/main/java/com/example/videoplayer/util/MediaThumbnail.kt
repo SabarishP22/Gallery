@@ -6,7 +6,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import android.util.Size
-import com.example.videoplayer.data.GalleryMedia
+import com.example.videoplayer.domain.model.GalleryMedia
 import coil.request.ImageRequest
 import coil.request.videoFrameMillis
 

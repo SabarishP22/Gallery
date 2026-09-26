@@ -25,6 +25,12 @@ object WallpaperShortcutHelper {
     }
 
     fun updateFromWallpaper(context: Context, uri: Uri) {
+        runCatching {
+            updateFromWallpaperInternal(context, uri)
+        }
+    }
+
+    private fun updateFromWallpaperInternal(context: Context, uri: Uri) {
         val bitmap = loadAdaptiveWallpaperBitmap(context, uri) ?: return
         val launchIntent = Intent(context, MainActivity::class.java).apply {
             action = Intent.ACTION_MAIN

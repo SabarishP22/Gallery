@@ -25,15 +25,20 @@ object LauncherIconManager {
     }
 
     fun applyDefault(context: Context) {
-        setEnabled(context, DEFAULT_ALIAS, true)
-        bucketAliases.forEach { setEnabled(context, it, false) }
+        runCatching {
+            setEnabled(context, DEFAULT_ALIAS, true)
+            bucketAliases.forEach { setEnabled(context, it, false) }
+        }
     }
 
     fun applyBucket(context: Context, bucketIndex: Int) {
         val index = bucketIndex.coerceIn(0, bucketAliases.lastIndex)
-        setEnabled(context, DEFAULT_ALIAS, false)
-        bucketAliases.forEachIndexed { i, alias ->
-            setEnabled(context, alias, i == index)
+        runCatching {
+            setEnabled(context, bucketAliases[index], true)
+            setEnabled(context, DEFAULT_ALIAS, false)
+            bucketAliases.forEachIndexed { i, alias ->
+                if (i != index) setEnabled(context, alias, false)
+            }
         }
     }
 
