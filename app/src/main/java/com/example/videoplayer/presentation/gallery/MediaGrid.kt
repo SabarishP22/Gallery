@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,13 +28,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
+import coil.compose.SubcomposeAsyncImage
+import coil.compose.SubcomposeAsyncImageContent
+import coil.request.ImageRequest
 import com.example.videoplayer.domain.model.GalleryMedia
 import com.example.videoplayer.presentation.theme.AuroraCyan
 import com.example.videoplayer.presentation.theme.DeepSpace
@@ -41,6 +47,7 @@ import com.example.videoplayer.presentation.theme.TextPrimary
 import com.example.videoplayer.util.formatDuration
 import com.example.videoplayer.util.mediaThumbnailRequest
 import kotlinx.coroutines.CoroutineScope
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -61,6 +68,9 @@ fun MediaGrid(
         state = gridState,
         modifier = modifier
             .fillMaxSize()
+            .graphicsLayer {
+                compositingStrategy = CompositingStrategy.Offscreen
+            }
             .gridSwipeSelection(
                 enabled = selectionMode,
                 gridState = gridState,
@@ -120,71 +130,105 @@ private fun MediaGridItem(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
 ) {
-    val context = LocalContext.current
+    val appContext = LocalContext.current.applicationContext
     val density = LocalDensity.current
-    val thumbSize = remember(gridColumns, density.density) {
-        val cellPx = when {
-            gridColumns <= 2 -> 320
-            gridColumns <= 4 -> 240
-            else -> 160
-        }
-        cellPx
+    val screenWidthDp = LocalConfiguration.current.screenWidthDp
+    val thumbSizePx = remember(gridColumns, screenWidthDp, density) {
+        val gridWidthPx = with(density) { screenWidthDp.dp.toPx() }
+        val paddingPx = with(density) { (12.dp * 2 + 6.dp * (gridColumns - 1).coerceAtLeast(0)).toPx() }
+        val cellPx = ((gridWidthPx - paddingPx) / gridColumns.coerceAtLeast(1)).roundToInt()
+        cellPx.coerceIn(96, 384)
     }
-    val request = remember(media.id, thumbSize) {
-        mediaThumbnailRequest(context, media, thumbSize)
+    val request = remember(media.id, thumbSizePx) {
+        mediaThumbnailRequest(appContext, media, thumbSizePx)
     }
     Box(
         modifier = Modifier
             .aspectRatio(1f)
             .clip(RoundedCornerShape(12.dp))
-            .graphicsLayer { clip = true }
             .background(DeepSpace)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick),
     ) {
-        AsyncImage(
-            model = request,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
+        GridCellThumbnail(
+            request = request,
             modifier = Modifier.fillMaxSize(),
         )
         if (media.isVideo) {
-            Text(
-                text = formatDuration(media.durationMs),
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(6.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(Color.Black.copy(alpha = 0.6f))
-                    .padding(horizontal = 5.dp, vertical = 2.dp),
-                style = MaterialTheme.typography.labelSmall,
-                color = TextPrimary,
-            )
-            Icon(
-                imageVector = Icons.Default.PlayArrow,
-                contentDescription = null,
-                tint = TextPrimary,
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .background(AuroraCyan.copy(alpha = 0.32f), RoundedCornerShape(50))
-                    .padding(5.dp),
-            )
+            MediaGridVideoOverlay(media = media)
         }
         if (selectionMode) {
-            if (selected) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(AuroraCyan.copy(alpha = 0.28f)),
-                )
-            }
-            Icon(
-                imageVector = Icons.Default.CheckCircle,
-                contentDescription = null,
-                tint = if (selected) AuroraCyan else TextPrimary.copy(alpha = 0.45f),
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(5.dp),
-            )
+            MediaGridSelectionOverlay(selected = selected)
         }
     }
+}
+
+@Composable
+private fun GridCellThumbnail(
+    request: ImageRequest,
+    modifier: Modifier = Modifier,
+) {
+    SubcomposeAsyncImage(
+        model = request,
+        contentDescription = null,
+        modifier = modifier.graphicsLayer {
+            compositingStrategy = CompositingStrategy.Offscreen
+        },
+        contentScale = ContentScale.Crop,
+        filterQuality = FilterQuality.Low,
+        loading = {
+            Box(modifier = Modifier.fillMaxSize().background(DeepSpace))
+        },
+        error = {
+            Box(modifier = Modifier.fillMaxSize().background(DeepSpace))
+        },
+        success = {
+            SubcomposeAsyncImageContent(
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
+        },
+    )
+}
+
+@Composable
+private fun BoxScope.MediaGridVideoOverlay(media: GalleryMedia) {
+    Text(
+        text = formatDuration(media.durationMs),
+        modifier = Modifier
+            .align(Alignment.BottomStart)
+            .padding(6.dp)
+            .clip(RoundedCornerShape(6.dp))
+            .background(Color.Black.copy(alpha = 0.6f))
+            .padding(horizontal = 5.dp, vertical = 2.dp),
+        style = MaterialTheme.typography.labelSmall,
+        color = TextPrimary,
+    )
+    Icon(
+        imageVector = Icons.Default.PlayArrow,
+        contentDescription = null,
+        tint = TextPrimary,
+        modifier = Modifier
+            .align(Alignment.Center)
+            .background(AuroraCyan.copy(alpha = 0.32f), RoundedCornerShape(50))
+            .padding(5.dp),
+    )
+}
+
+@Composable
+private fun BoxScope.MediaGridSelectionOverlay(selected: Boolean) {
+    if (selected) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(AuroraCyan.copy(alpha = 0.28f)),
+        )
+    }
+    Icon(
+        imageVector = Icons.Default.CheckCircle,
+        contentDescription = null,
+        tint = if (selected) AuroraCyan else TextPrimary.copy(alpha = 0.45f),
+        modifier = Modifier
+            .align(Alignment.TopEnd)
+            .padding(5.dp),
+    )
 }

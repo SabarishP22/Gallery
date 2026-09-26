@@ -18,26 +18,26 @@ fun mediaThumbnailRequest(
     media: GalleryMedia,
     pixelSize: Int = 400,
 ): ImageRequest {
-    val targetSize = pixelSize.coerceIn(128, 512)
+    val targetSize = if (media.isVideo) {
+        pixelSize.coerceIn(96, 256)
+    } else {
+        pixelSize.coerceIn(128, 384)
+    }
     val builder = ImageRequest.Builder(context)
         .data(media.uri)
         .size(targetSize)
         .scale(Scale.FILL)
         .precision(Precision.INEXACT)
         .crossfade(false)
-        .allowHardware(true)
+        .allowHardware(!media.isVideo)
+        .allowRgb565(true)
         .memoryCachePolicy(CachePolicy.ENABLED)
         .diskCachePolicy(CachePolicy.ENABLED)
         .memoryCacheKey("${media.id}-thumb-$targetSize")
         .diskCacheKey("${media.id}-thumb-$targetSize")
 
     if (media.isVideo) {
-        builder
-            .videoFrameMillis(0L)
-            .allowHardware(false)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            builder.placeholderMemoryCacheKey("video-ph-${media.id}")
-        }
+        builder.videoFrameMillis(0L)
     }
     return builder.build()
 }
