@@ -7,7 +7,12 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -387,9 +392,9 @@ private fun VideoPage(
         }
     }
 
-    fun showControls() {
-        controlsVisible = true
-        onChromeVisibleChange(true)
+    fun toggleControls() {
+        controlsVisible = !controlsVisible
+        onChromeVisibleChange(controlsVisible)
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -410,61 +415,59 @@ private fun VideoPage(
         )
 
         if (isActive) {
-            Row(
+            var lastQuickTapUptime by remember(media.id) { mutableLongStateOf(0L) }
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .zIndex(20f),
-            ) {
-                VideoTapZone(
-                    modifier = Modifier
-                        .weight(0.36f)
-                        .fillMaxHeight(),
-                    onSingleTap = {
-                        showControls()
+                    .zIndex(45f)
+                    .pointerInput(media.id) {
+                        awaitEachGesture {
+                            awaitFirstDown(requireUnconsumed = false)
+                            val up = waitForUpOrCancellation() ?: return@awaitEachGesture
+                            val now = SystemClock.uptimeMillis()
+                            val width = size.width.toFloat()
+                            val x = up.position.x
+                            if (controlsVisible) return@awaitEachGesture
+                            if (lastQuickTapUptime > 0L && now - lastQuickTapUptime in 1..320L) {
+                                lastQuickTapUptime = 0L
+                                when {
+                                    x < width * 0.38f -> {
+                                        player.seekTo((player.currentPosition - 10_000).coerceAtLeast(0L))
+                                    }
+                                    x > width * 0.62f -> {
+                                        player.seekTo(
+                                            (player.currentPosition + 10_000).coerceAtMost(
+                                                if (player.duration > 0) player.duration else Long.MAX_VALUE,
+                                            ),
+                                        )
+                                    }
+                                }
+                                controlsVisible = true
+                                onChromeVisibleChange(true)
+                            } else {
+                                lastQuickTapUptime = now
+                                toggleControls()
+                            }
+                        }
                     },
-                    onDoubleTap = {
-                        player.seekTo((player.currentPosition - 10_000).coerceAtLeast(0L))
-                        showControls()
-                    },
-                )
-                VideoTapZone(
-                    modifier = Modifier
-                        .weight(0.28f)
-                        .fillMaxHeight(),
-                    onSingleTap = {
-                        controlsVisible = !controlsVisible
-                        onChromeVisibleChange(controlsVisible)
-                    },
-                    onDoubleTap = null,
-                )
-                VideoTapZone(
-                    modifier = Modifier
-                        .weight(0.36f)
-                        .fillMaxHeight(),
-                    onSingleTap = {
-                        showControls()
-                    },
-                    onDoubleTap = {
-                        player.seekTo(
-                            (player.currentPosition + 10_000).coerceAtMost(
-                                if (player.duration > 0) player.duration else Long.MAX_VALUE,
-                            ),
-                        )
-                        showControls()
-                    },
-                )
-            }
+            )
         }
 
         if (controlsVisible && isActive) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .zIndex(50f),
-            ) {
-                GlassSurface(
+                    .zIndex(48f)
+                    .background(Color.Black.copy(alpha = 0.18f))
+                    .clickable(
+                        interactionSource = remember(media.id) { MutableInteractionSource() },
+                        indication = null,
+                    ) { toggleControls() },
+            )
+            GlassSurface(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
+                        .zIndex(50f)
                         .fillMaxWidth()
                         .padding(12.dp),
                     cornerRadius = 16.dp,
@@ -518,11 +521,13 @@ private fun VideoPage(
                     }
                 }
 
-                Row(
-                    modifier = Modifier.align(Alignment.Center),
-                    horizontalArrangement = Arrangement.spacedBy(32.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .zIndex(50f),
+                horizontalArrangement = Arrangement.spacedBy(32.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                     IconButton(onClick = {
                         player.seekTo((player.currentPosition - 10_000).coerceAtLeast(0L))
                     }) {
@@ -565,16 +570,17 @@ private fun VideoPage(
                             tint = TextPrimary,
                         )
                     }
-                }
+            }
 
-                GlassSurface(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .navigationBarsPadding()
-                        .padding(12.dp),
-                    cornerRadius = 16.dp,
-                ) {
+            GlassSurface(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .zIndex(50f)
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(12.dp),
+                cornerRadius = 16.dp,
+            ) {
                     Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                         val progress = if (durationMs > 0) positionMs.toFloat() / durationMs else 0f
                         Slider(
@@ -600,37 +606,14 @@ private fun VideoPage(
                         }
                     }
                 }
-            }
         }
 
         BrightnessVolumeGestureLayer(
-            modifier = Modifier.fillMaxSize(),
-            enabled = isActive,
+            modifier = Modifier
+                .fillMaxSize()
+                .zIndex(30f),
+            enabled = isActive && !controlsVisible,
         )
     }
 }
 
-@Composable
-private fun VideoTapZone(
-    modifier: Modifier,
-    onSingleTap: () -> Unit,
-    onDoubleTap: (() -> Unit)?,
-) {
-    var lastTapUptime by remember { mutableLongStateOf(0L) }
-    Box(
-        modifier = modifier.pointerInput(onDoubleTap) {
-            detectTapGestures(
-                onTap = {
-                    val now = SystemClock.uptimeMillis()
-                    if (onDoubleTap != null && lastTapUptime > 0L && now - lastTapUptime <= 280L) {
-                        lastTapUptime = 0L
-                        onDoubleTap()
-                    } else {
-                        lastTapUptime = now
-                        onSingleTap()
-                    }
-                },
-            )
-        },
-    )
-}

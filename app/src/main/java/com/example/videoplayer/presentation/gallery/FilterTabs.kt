@@ -1,7 +1,5 @@
 package com.example.videoplayer.presentation.gallery
 
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -34,10 +32,12 @@ import com.example.videoplayer.domain.model.MediaFilter
 import com.example.videoplayer.presentation.theme.AuroraCyan
 import com.example.videoplayer.presentation.theme.DeepSpaceElevated
 import com.example.videoplayer.presentation.theme.TextSecondary
+import kotlin.math.roundToInt
 
 @Composable
 fun FilterTabs(
     selected: MediaFilter,
+    pagerPosition: Float,
     onSelected: (MediaFilter) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -46,14 +46,9 @@ fun FilterTabs(
         MediaFilter.IMAGES to "Images",
         MediaFilter.VIDEOS to "Videos",
     )
-    val selectedIndex = tabs.indexOfFirst { it.first == selected }.coerceAtLeast(0)
     var tabWidthPx by remember { mutableIntStateOf(0) }
     val density = LocalDensity.current
-    val indicatorOffset by animateDpAsState(
-        targetValue = with(density) { (selectedIndex * tabWidthPx).toDp() },
-        animationSpec = tween(durationMillis = 180),
-        label = "tabIndicator",
-    )
+    val highlightIndex = pagerPosition.roundToInt().coerceIn(0, tabs.lastIndex)
 
     Box(
         modifier = modifier
@@ -64,9 +59,10 @@ fun FilterTabs(
             .padding(4.dp),
     ) {
         if (tabWidthPx > 0) {
+            val indicatorOffsetPx = (pagerPosition * tabWidthPx).roundToInt()
             Box(
                 modifier = Modifier
-                    .offset { IntOffset(with(density) { indicatorOffset.roundToPx() }, 0) }
+                    .offset { IntOffset(indicatorOffsetPx, 0) }
                     .width(with(density) { tabWidthPx.toDp() })
                     .fillMaxHeight()
                     .clip(RoundedCornerShape(18.dp))
@@ -77,7 +73,7 @@ fun FilterTabs(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
-            tabs.forEach { (filter, label) ->
+            tabs.forEachIndexed { index, (filter, label) ->
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -94,8 +90,12 @@ fun FilterTabs(
                     Text(
                         text = label,
                         style = MaterialTheme.typography.labelLarge,
-                        fontWeight = if (filter == selected) FontWeight.SemiBold else FontWeight.Normal,
-                        color = if (filter == selected) AuroraCyan else TextSecondary,
+                        fontWeight = if (index == highlightIndex || filter == selected) {
+                            FontWeight.SemiBold
+                        } else {
+                            FontWeight.Normal
+                        },
+                        color = if (index == highlightIndex || filter == selected) AuroraCyan else TextSecondary,
                     )
                 }
             }

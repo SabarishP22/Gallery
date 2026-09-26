@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -80,17 +81,23 @@ fun GalleryScreen(
         pageCount = { tabFilters.size },
     )
 
-    val tabIndicatorIndex by remember {
-        derivedStateOf { filterPagerState.currentPage.coerceIn(0, tabFilters.lastIndex) }
+    val pagerPosition by remember {
+        derivedStateOf {
+            filterPagerState.currentPage + filterPagerState.currentPageOffsetFraction
+        }
     }
 
     LaunchedEffect(filterPagerState) {
-        snapshotFlow { filterPagerState.currentPage }
+        snapshotFlow { filterPagerState.settledPage }
             .distinctUntilChanged()
             .collect { page ->
-                viewModel.setFilter(tabFilters[page])
+                viewModel.setFilter(tabFilters[page.coerceIn(0, tabFilters.lastIndex)])
             }
     }
+
+    val rowsAll by remember { derivedStateOf { state.gridRowsAll } }
+    val rowsImages by remember { derivedStateOf { state.gridRowsImages } }
+    val rowsVideos by remember { derivedStateOf { state.gridRowsVideos } }
     val context = LocalContext.current
     var showSearch by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -150,12 +157,13 @@ fun GalleryScreen(
         )
 
         FilterTabs(
-            selected = tabFilters[tabIndicatorIndex],
+            selected = state.filter,
+            pagerPosition = pagerPosition,
             onSelected = { filter ->
                 scope.launch {
                     filterPagerState.animateScrollToPage(
                         page = tabFilters.indexOf(filter).coerceAtLeast(0),
-                        animationSpec = tween(durationMillis = 220),
+                        animationSpec = tween(durationMillis = 180),
                     )
                 }
             },
@@ -188,11 +196,16 @@ fun GalleryScreen(
                     HorizontalPager(
                         state = filterPagerState,
                         modifier = Modifier.fillMaxSize(),
-                        beyondViewportPageCount = 0,
+                        beyondViewportPageCount = 1,
+                        flingBehavior = PagerDefaults.flingBehavior(state = filterPagerState),
                         key = { page -> tabFilters[page].name },
                     ) { page ->
                         val pageFilter = tabFilters[page]
-                        val pageRows = state.gridRowsFor(pageFilter)
+                        val pageRows = when (pageFilter) {
+                            MediaFilter.ALL -> rowsAll
+                            MediaFilter.IMAGES -> rowsImages
+                            MediaFilter.VIDEOS -> rowsVideos
+                        }
                         val pageGridState = when (pageFilter) {
                             MediaFilter.ALL -> gridStateAll
                             MediaFilter.IMAGES -> gridStateImages
