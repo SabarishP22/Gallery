@@ -113,10 +113,10 @@ fun SortPickerDialog(
                             .then(
                                 if (isSelected) {
                                     Modifier
-                                        .background(AuroraCyan.copy(alpha = 0.12f))
-                                        .border(1.dp, AuroraCyan.copy(alpha = 0.45f), RoundedCornerShape(16.dp))
+                                        .background(AuroraCyan.copy(alpha = 0.18f))
+                                        .border(1.dp, AuroraCyan.copy(alpha = 0.55f), RoundedCornerShape(16.dp))
                                 } else {
-                                    Modifier
+                                    Modifier.background(AuroraViolet.copy(alpha = 0.06f))
                                 },
                             )
                             .clickable(
