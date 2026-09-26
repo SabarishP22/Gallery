@@ -5,9 +5,9 @@ import android.content.Intent
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,12 +16,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -30,6 +32,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -39,6 +42,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,6 +58,7 @@ import com.example.videoplayer.ui.theme.AuroraCyan
 import com.example.videoplayer.ui.theme.DeepSpaceElevated
 import com.example.videoplayer.ui.theme.TextPrimary
 import com.example.videoplayer.ui.theme.TextSecondary
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,7 +70,7 @@ fun GalleryScreen(
     val mediaItems = state.displayItems
     val context = LocalContext.current
     var showSearch by remember { mutableStateOf(false) }
-    var showSortMenu by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     val permissions = remember {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -106,29 +111,18 @@ fun GalleryScreen(
             selectedCount = state.selectedIds.size,
             showSearch = showSearch,
             searchQuery = state.searchQuery,
+            sortOrder = state.sortOrder,
             onToggleSearch = { showSearch = !showSearch },
             onSearchChange = viewModel::setSearchQuery,
             isRefreshing = state.isRefreshing,
             onRefresh = viewModel::refreshMedia,
             onToggleGrid = viewModel::toggleGridColumns,
-            onShowSort = { showSortMenu = true },
+            onSortSelected = viewModel::setSortOrder,
             onClearSelection = viewModel::clearSelection,
             onShareSelection = {
                 shareMedia(context, state.allMedia.filter { it.id in state.selectedIds })
             },
         )
-
-        DropdownMenu(expanded = showSortMenu, onDismissRequest = { showSortMenu = false }) {
-            SortOrder.entries.forEach { order ->
-                DropdownMenuItem(
-                    text = { Text(sortLabel(order)) },
-                    onClick = {
-                        viewModel.setSortOrder(order)
-                        showSortMenu = false
-                    },
-                )
-            }
-        }
 
         FilterTabs(
             selected = state.filter,
@@ -173,12 +167,49 @@ fun GalleryScreen(
                                     gridState.firstVisibleItemIndex,
                                     gridState.firstVisibleItemScrollOffset,
                                 )
-                                viewModel.openMedia(item.id)
                                 onOpenMedia(item.id)
                             }
                         },
-                        onLongClick = { item -> viewModel.toggleSelection(item.id) },
+                        onLongClick = { item ->
+                            if (item.isVideo) {
+                                viewModel.toggleSelection(item.id)
+                            } else {
+                                viewModel.openWallpaperDialog(item)
+                            }
+                        },
                     )
+                }
+            }
+
+            if (state.gridRows.isNotEmpty() && state.viewerMediaId == null) {
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(end = 16.dp, bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    SmallFloatingActionButton(
+                        onClick = {
+                            scope.launch {
+                                gridState.animateScrollToItem(0)
+                            }
+                        },
+                        containerColor = DeepSpaceElevated,
+                        contentColor = TextPrimary,
+                    ) {
+                        Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Scroll to top")
+                    }
+                    SmallFloatingActionButton(
+                        onClick = {
+                            scope.launch {
+                                gridState.animateScrollToItem(state.gridRows.lastIndex)
+                            }
+                        },
+                        containerColor = DeepSpaceElevated,
+                        contentColor = TextPrimary,
+                    ) {
+                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Scroll to bottom")
+                    }
                 }
             }
         }
@@ -191,15 +222,18 @@ private fun GalleryTopBar(
     selectedCount: Int,
     showSearch: Boolean,
     searchQuery: String,
+    sortOrder: SortOrder,
     isRefreshing: Boolean,
     onToggleSearch: () -> Unit,
     onSearchChange: (String) -> Unit,
     onRefresh: () -> Unit,
     onToggleGrid: () -> Unit,
-    onShowSort: () -> Unit,
+    onSortSelected: (SortOrder) -> Unit,
     onClearSelection: () -> Unit,
     onShareSelection: () -> Unit,
 ) {
+    var showSortMenu by remember { mutableStateOf(false) }
+
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -227,7 +261,7 @@ private fun GalleryTopBar(
                     Icon(Icons.Default.Share, contentDescription = "Share")
                 }
                 IconButton(onClick = onClearSelection) {
-                    Icon(Icons.Default.Close, contentDescription = "Clear selection")
+                    Icon(Icons.Default.Close, contentDescription = "Close")
                 }
             } else {
                 IconButton(
@@ -254,12 +288,34 @@ private fun GalleryTopBar(
                     .padding(horizontal = 8.dp)
                     .padding(bottom = 4.dp),
                 horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = onToggleSearch, colors = AuraIconDefaults.iconButtonColors()) {
                     Icon(Icons.Default.Search, contentDescription = "Search", tint = TextPrimary)
                 }
-                IconButton(onClick = onShowSort, colors = AuraIconDefaults.iconButtonColors()) {
-                    Icon(Icons.Default.Sort, contentDescription = "Sort", tint = TextPrimary)
+                Box {
+                    IconButton(onClick = { showSortMenu = true }, colors = AuraIconDefaults.iconButtonColors()) {
+                        Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = "Sort", tint = TextPrimary)
+                    }
+                    DropdownMenu(
+                        expanded = showSortMenu,
+                        onDismissRequest = { showSortMenu = false },
+                    ) {
+                        SortOrder.entries.forEach { order ->
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = sortLabel(order),
+                                        color = if (order == sortOrder) AuroraCyan else TextPrimary,
+                                    )
+                                },
+                                onClick = {
+                                    onSortSelected(order)
+                                    showSortMenu = false
+                                },
+                            )
+                        }
+                    }
                 }
                 IconButton(onClick = onToggleGrid, colors = AuraIconDefaults.iconButtonColors()) {
                     Icon(Icons.Default.GridView, contentDescription = "Grid size", tint = TextPrimary)
@@ -273,7 +329,7 @@ private fun GalleryTopBar(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
-                placeholder = { Text("Search by filename…") },
+                placeholder = { Text("Name, date, month, year…") },
                 singleLine = true,
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = DeepSpaceElevated,

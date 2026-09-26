@@ -1,56 +1,74 @@
 package com.example.videoplayer.navigation
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavType
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
+import com.example.videoplayer.ui.components.GalleryBackground
 import com.example.videoplayer.ui.gallery.GalleryScreen
 import com.example.videoplayer.ui.gallery.GalleryViewModel
 import com.example.videoplayer.ui.viewer.MediaViewerScreen
-
-object Routes {
-    const val HOME = "home"
-    const val VIEWER = "viewer/{mediaId}"
-
-    fun viewer(id: Long) = "viewer/$id"
-}
+import com.example.videoplayer.ui.wallpaper.WallpaperSetupDialog
 
 @Composable
 fun GalleryNavHost(viewModel: GalleryViewModel = viewModel()) {
-    val navController = rememberNavController()
+    val state by viewModel.uiState.collectAsState()
+    val viewerId = state.viewerMediaId
 
-    NavHost(
-        navController = navController,
-        startDestination = Routes.HOME,
+    GalleryBackground(
+        wallpaperUri = state.wallpaperUri,
+        wallpaperBlurDp = state.wallpaperBlurDp,
+        modifier = Modifier.fillMaxSize(),
     ) {
-        composable(Routes.HOME) {
+        Box(modifier = Modifier.fillMaxSize()) {
             GalleryScreen(
                 viewModel = viewModel,
-                onOpenMedia = { id ->
-                    navController.navigate(Routes.viewer(id)) {
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                },
+                onOpenMedia = { id -> viewModel.openMedia(id) },
             )
+
+            AnimatedVisibility(
+                visible = viewerId != null,
+                enter = scaleIn(
+                    initialScale = 0.78f,
+                    transformOrigin = TransformOrigin(0.5f, 0.5f),
+                    animationSpec = tween(340),
+                ) + fadeIn(tween(280)),
+                exit = scaleOut(
+                    targetScale = 0.78f,
+                    transformOrigin = TransformOrigin(0.5f, 0.5f),
+                    animationSpec = tween(280),
+                ) + fadeOut(tween(240)),
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                val mediaId = viewerId ?: return@AnimatedVisibility
+                val (items, index) = viewModel.pagerMediaFor(mediaId)
+                MediaViewerScreen(
+                    items = items,
+                    startIndex = index,
+                    onBack = { viewModel.closeViewer() },
+                    onWallpaperRequest = { media -> viewModel.openWallpaperDialog(media) },
+                )
+            }
         }
-        composable(
-            route = Routes.VIEWER,
-            arguments = listOf(navArgument("mediaId") { type = NavType.LongType }),
-        ) { entry ->
-            val mediaId = entry.arguments?.getLong("mediaId") ?: return@composable
-            val (items, index) = viewModel.pagerMediaFor(mediaId)
-            MediaViewerScreen(
-                items = items,
-                startIndex = index,
-                onBack = {
-                    viewModel.clearActiveMedia()
-                    navController.popBackStack(Routes.HOME, inclusive = false, saveState = true)
-                },
-            )
-        }
+    }
+
+    state.wallpaperDialogMedia?.let { media ->
+        WallpaperSetupDialog(
+            media = media,
+            initialBlurDp = state.wallpaperBlurDp,
+            onDismiss = viewModel::closeWallpaperDialog,
+            onSave = { blur -> viewModel.saveWallpaper(media.uri, blur) },
+            onClear = viewModel::clearWallpaper,
+        )
     }
 }

@@ -7,7 +7,8 @@ import android.view.WindowManager
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -36,8 +37,10 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import android.content.res.Configuration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.example.videoplayer.ui.theme.AuroraCyan
@@ -109,62 +112,45 @@ fun BrightnessVolumeGestureLayer(
         )
     }
 
-    Box(modifier = modifier.zIndex(30f)) {
-        Box(
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+    BoxWithConstraints(modifier = modifier.zIndex(30f)) {
+        val edgeWidth = maxWidth * 0.26f
+
+        GestureEdge(
             modifier = Modifier
-                .align(Alignment.CenterStart)
+                .align(if (isLandscape) Alignment.CenterStart else Alignment.CenterStart)
                 .fillMaxHeight()
-                .width(120.dp)
-                .pointerInput(sweepPx, activity) {
-                    var dragSum = 0f
-                    var startBrightness = brightnessHolder.floatValue
-                    detectVerticalDragGestures(
-                        onDragStart = {
-                            dragSum = 0f
-                            startBrightness = brightnessHolder.floatValue
-                        },
-                        onDragEnd = { dragSum = 0f },
-                        onDragCancel = { dragSum = 0f },
-                        onVerticalDrag = { _, dragAmount ->
-                            dragSum += dragAmount
-                            applyWindowBrightness(startBrightness + (-dragSum / sweepPx))
-                            showBrightness = true
-                            hideBrightnessJob?.cancel()
-                            hideBrightnessJob = scope.launch {
-                                delay(1_200)
-                                showBrightness = false
-                            }
-                        },
-                    )
-                },
+                .width(edgeWidth.coerceAtLeast(96.dp)),
+            sweepPx = sweepPx,
+            onDragDeltaY = { deltaY, startValue ->
+                applyWindowBrightness(startValue + (-deltaY / sweepPx))
+                showBrightness = true
+                hideBrightnessJob?.cancel()
+                hideBrightnessJob = scope.launch {
+                    delay(1_200)
+                    showBrightness = false
+                }
+            },
+            startValue = { brightnessHolder.floatValue },
         )
-        Box(
+        GestureEdge(
             modifier = Modifier
-                .align(Alignment.CenterEnd)
+                .align(if (isLandscape) Alignment.CenterEnd else Alignment.CenterEnd)
                 .fillMaxHeight()
-                .width(120.dp)
-                .pointerInput(sweepPx, maxVolume) {
-                    var dragSum = 0f
-                    var startVolume = volumeHolder.floatValue
-                    detectVerticalDragGestures(
-                        onDragStart = {
-                            dragSum = 0f
-                            startVolume = volumeHolder.floatValue
-                        },
-                        onDragEnd = { dragSum = 0f },
-                        onDragCancel = { dragSum = 0f },
-                        onVerticalDrag = { _, dragAmount ->
-                            dragSum += dragAmount
-                            applyVolumeFraction(startVolume + (-dragSum / sweepPx))
-                            showVolume = true
-                            hideVolumeJob?.cancel()
-                            hideVolumeJob = scope.launch {
-                                delay(1_200)
-                                showVolume = false
-                            }
-                        },
-                    )
-                },
+                .width(edgeWidth.coerceAtLeast(96.dp)),
+            sweepPx = sweepPx,
+            onDragDeltaY = { deltaY, startValue ->
+                applyVolumeFraction(startValue + (-deltaY / sweepPx))
+                showVolume = true
+                hideVolumeJob?.cancel()
+                hideVolumeJob = scope.launch {
+                    delay(1_200)
+                    showVolume = false
+                }
+            },
+            startValue = { volumeHolder.floatValue },
         )
 
         VerticalHud(
@@ -174,7 +160,7 @@ fun BrightnessVolumeGestureLayer(
             icon = {
                 Icon(Icons.Default.Brightness6, contentDescription = null, tint = AuroraCyan, modifier = Modifier.size(22.dp))
             },
-            modifier = Modifier.align(Alignment.CenterStart).padding(start = 28.dp),
+            modifier = Modifier.align(Alignment.CenterStart).padding(start = if (isLandscape) 16.dp else 28.dp),
         )
         VerticalHud(
             visible = showVolume,
@@ -183,9 +169,36 @@ fun BrightnessVolumeGestureLayer(
             icon = {
                 Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null, tint = AuroraViolet, modifier = Modifier.size(22.dp))
             },
-            modifier = Modifier.align(Alignment.CenterEnd).padding(end = 28.dp),
+            modifier = Modifier.align(Alignment.CenterEnd).padding(end = if (isLandscape) 16.dp else 28.dp),
         )
     }
+}
+
+@Composable
+private fun GestureEdge(
+    modifier: Modifier,
+    sweepPx: Float,
+    startValue: () -> Float,
+    onDragDeltaY: (Float, Float) -> Unit,
+) {
+    Box(
+        modifier = modifier.pointerInput(sweepPx) {
+            var dragSum = 0f
+            var start = startValue()
+            detectDragGestures(
+                onDragStart = {
+                    dragSum = 0f
+                    start = startValue()
+                },
+                onDragEnd = { dragSum = 0f },
+                onDragCancel = { dragSum = 0f },
+                onDrag = { _, dragAmount ->
+                    dragSum += dragAmount.y
+                    onDragDeltaY(dragSum, start)
+                },
+            )
+        },
+    )
 }
 
 @Composable

@@ -87,6 +87,7 @@ fun MediaViewerScreen(
     items: List<GalleryMedia>,
     startIndex: Int,
     onBack: () -> Unit,
+    onWallpaperRequest: (GalleryMedia) -> Unit = {},
 ) {
     if (items.isEmpty()) {
         LaunchedEffect(Unit) { onBack() }
@@ -122,7 +123,7 @@ fun MediaViewerScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(DeepSpace),
+            .background(DeepSpace.copy(alpha = 0.98f)),
     ) {
         HorizontalPager(
             state = pagerState,
@@ -145,6 +146,7 @@ fun MediaViewerScreen(
                     media = media,
                     onToggleChrome = { chromeVisible = !chromeVisible },
                     onZoomChanged = { zoomed -> if (isActive) photoZoomed = zoomed },
+                    onLongPress = { onWallpaperRequest(media) },
                 )
             }
         }
@@ -243,6 +245,7 @@ private fun ZoomablePhotoPage(
     media: GalleryMedia,
     onToggleChrome: () -> Unit,
     onZoomChanged: (Boolean) -> Unit,
+    onLongPress: () -> Unit,
 ) {
     var scale by remember(media.id) { mutableFloatStateOf(1f) }
     var offset by remember(media.id) { mutableStateOf(Offset.Zero) }
@@ -279,6 +282,7 @@ private fun ZoomablePhotoPage(
                                 scale = 2.5f
                             }
                         },
+                        onLongPress = { onLongPress() },
                     )
                 }
                 .then(

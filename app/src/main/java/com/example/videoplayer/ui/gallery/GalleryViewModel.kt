@@ -7,11 +7,14 @@ import com.example.videoplayer.data.GalleryMedia
 import com.example.videoplayer.data.MediaFilter
 import com.example.videoplayer.data.MediaRepository
 import com.example.videoplayer.data.SortOrder
+import com.example.videoplayer.data.WallpaperPreferences
+import com.example.videoplayer.util.mediaMatchesQuery
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import android.net.Uri
 
 data class GalleryUiState(
     val isLoading: Boolean = true,
@@ -28,18 +31,36 @@ data class GalleryUiState(
     val errorMessage: String? = null,
     val permissionGranted: Boolean = false,
     val activeMediaId: Long? = null,
+    val viewerMediaId: Long? = null,
     val displayItems: List<GalleryMedia> = emptyList(),
     val gridRows: List<GalleryGridRow> = emptyList(),
+    val wallpaperUri: String? = null,
+    val wallpaperBlurDp: Float = 18f,
+    val wallpaperDialogMedia: GalleryMedia? = null,
 )
 
 class GalleryViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = MediaRepository(application)
+    private val wallpaperPreferences = WallpaperPreferences(application)
 
     private val _uiState = MutableStateFlow(GalleryUiState())
     val uiState: StateFlow<GalleryUiState> = _uiState.asStateFlow()
 
     private var permissionCheckHandled = false
+
+    init {
+        viewModelScope.launch {
+            wallpaperPreferences.settings.collect { settings ->
+                _uiState.update {
+                    it.copy(
+                        wallpaperUri = settings.imageUri,
+                        wallpaperBlurDp = settings.blurRadiusDp,
+                    )
+                }
+            }
+        }
+    }
 
     fun handleInitialPermissionCheck(alreadyGranted: Boolean, requestPermissions: () -> Unit) {
         if (permissionCheckHandled) return
@@ -101,7 +122,7 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
                             isRefreshing = false,
                             allMedia = media,
                             displayItems = filtered,
-                            gridRows = buildGalleryGridRows(filtered),
+                            gridRows = buildGalleryGridRows(filtered, state.sortOrder),
                         )
                     }
                 }
@@ -121,7 +142,7 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
         _uiState.update { state ->
             val next = state.copy(filter = filter)
             val filtered = computeFiltered(next)
-            next.copy(displayItems = filtered, gridRows = buildGalleryGridRows(filtered))
+            next.copy(displayItems = filtered, gridRows = buildGalleryGridRows(filtered, next.sortOrder))
         }
     }
 
@@ -129,7 +150,7 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
         _uiState.update { state ->
             val next = state.copy(searchQuery = query)
             val filtered = computeFiltered(next)
-            next.copy(displayItems = filtered, gridRows = buildGalleryGridRows(filtered))
+            next.copy(displayItems = filtered, gridRows = buildGalleryGridRows(filtered, next.sortOrder))
         }
     }
 
@@ -137,7 +158,7 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
         _uiState.update { state ->
             val next = state.copy(sortOrder = order)
             val filtered = computeFiltered(next)
-            next.copy(displayItems = filtered, gridRows = buildGalleryGridRows(filtered))
+            next.copy(displayItems = filtered, gridRows = buildGalleryGridRows(filtered, order))
         }
     }
 
@@ -158,11 +179,15 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun openMedia(id: Long) {
-        _uiState.update { it.copy(activeMediaId = id) }
+        _uiState.update { it.copy(activeMediaId = id, viewerMediaId = id) }
+    }
+
+    fun closeViewer() {
+        _uiState.update { it.copy(activeMediaId = null, viewerMediaId = null) }
     }
 
     fun clearActiveMedia() {
-        _uiState.update { it.copy(activeMediaId = null) }
+        closeViewer()
     }
 
     fun toggleSelection(id: Long) {
@@ -180,6 +205,41 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
         _uiState.update { it.copy(selectionMode = false, selectedIds = emptySet()) }
     }
 
+    fun openWallpaperDialog(media: GalleryMedia) {
+        if (media.isVideo) return
+        _uiState.update { it.copy(wallpaperDialogMedia = media) }
+    }
+
+    fun closeWallpaperDialog() {
+        _uiState.update { it.copy(wallpaperDialogMedia = null) }
+    }
+
+    fun saveWallpaper(uri: Uri, blurDp: Float) {
+        viewModelScope.launch {
+            wallpaperPreferences.save(uri.toString(), blurDp)
+            _uiState.update {
+                it.copy(
+                    wallpaperUri = uri.toString(),
+                    wallpaperBlurDp = blurDp,
+                    wallpaperDialogMedia = null,
+                )
+            }
+        }
+    }
+
+    fun clearWallpaper() {
+        viewModelScope.launch {
+            wallpaperPreferences.clear()
+            _uiState.update {
+                it.copy(
+                    wallpaperUri = null,
+                    wallpaperBlurDp = 18f,
+                    wallpaperDialogMedia = null,
+                )
+            }
+        }
+    }
+
     fun filteredMedia(state: GalleryUiState = _uiState.value): List<GalleryMedia> {
         return state.displayItems.ifEmpty { computeFiltered(state) }
     }
@@ -192,8 +252,7 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
             MediaFilter.VIDEOS -> list.filter { it.isVideo }
         }
         if (state.searchQuery.isNotBlank()) {
-            val q = state.searchQuery.trim().lowercase()
-            list = list.filter { it.displayName.lowercase().contains(q) }
+            list = list.filter { mediaMatchesQuery(it, state.searchQuery) }
         }
         return when (state.sortOrder) {
             SortOrder.DATE_NEWEST -> list.sortedByDescending { it.dateAddedSec }
