@@ -10,8 +10,8 @@ val DeepSpaceElevated = Color(0xFF12121A)
 val DeepSpaceSurface = Color(0xFF1A1A24)
 val GlassWhite = Color(0x14FFFFFF)
 val GlassWhiteStrong = Color(0x28FFFFFF)
-/** Modal glass: same frosted style, ~less transparent than [GlassWhite]. */
-val GlassWhiteDialog = Color(0x28FFFFFF)
-val GlassWhiteStrongDialog = Color(0x42FFFFFF)
+/** Modal glass: 30% opacity frosted overlay (70% transparent). */
+val GlassWhiteDialog = Color(0x4DFFFFFF)
+val GlassWhiteStrongDialog = Color(0x66FFFFFF)
 val TextPrimary = Color(0xFFF5F5FA)
 val TextSecondary = Color(0xFF9898A8)
