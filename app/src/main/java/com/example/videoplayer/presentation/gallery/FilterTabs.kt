@@ -68,9 +68,8 @@ fun FilterTabs(
     var tapHighlightFilter by remember { mutableStateOf<MediaFilter?>(null) }
     val density = LocalDensity.current
     val indicatorOffsetPx = (pagerPosition * tabWidthPx).roundToInt()
-    val pagerHighlightFilter = tabs[
-        (pagerPosition + 0.5f).roundToInt().coerceIn(0, tabs.lastIndex)
-    ].filter
+    val pagerHighlightIndex = pagerPosition.roundToInt().coerceIn(0, tabs.lastIndex)
+    val pagerHighlightFilter = tabs[pagerHighlightIndex].filter
     val activeFilter = tapHighlightFilter ?: pagerHighlightFilter
 
     LaunchedEffect(pagerPosition, tapHighlightFilter) {
@@ -109,7 +108,12 @@ fun FilterTabs(
                 )
             }
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onSizeChanged { size ->
+                        val segment = size.width / tabs.size
+                        if (segment > 0 && tabWidthPx != segment) tabWidthPx = segment
+                    },
                 horizontalArrangement = Arrangement.SpaceEvenly,
             ) {
                 tabs.forEach { spec ->
@@ -120,9 +124,6 @@ fun FilterTabs(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
-                            .onSizeChanged { size ->
-                                if (tabWidthPx != size.width) tabWidthPx = size.width
-                            }
                             .clip(RoundedCornerShape(20.dp))
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
