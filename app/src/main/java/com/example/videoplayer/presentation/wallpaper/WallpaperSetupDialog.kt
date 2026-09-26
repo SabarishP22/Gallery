@@ -60,6 +60,7 @@ import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
 import com.example.videoplayer.domain.model.GalleryMedia
 import com.example.videoplayer.presentation.components.GlassSurface
+import com.example.videoplayer.presentation.components.GlassSurfaceStyle
 import com.example.videoplayer.presentation.theme.AuroraCyan
 import com.example.videoplayer.presentation.theme.AuroraViolet
 import com.example.videoplayer.presentation.theme.DeepSpace
@@ -107,9 +108,9 @@ fun WallpaperSetupDialog(
                 .background(
                     Brush.linearGradient(
                         listOf(
-                            DeepSpace.copy(alpha = 0.97f),
-                            AuroraViolet.copy(alpha = 0.35f),
-                            DeepSpace.copy(alpha = 0.95f),
+                            DeepSpace.copy(alpha = 0.99f),
+                            AuroraViolet.copy(alpha = 0.42f),
+                            DeepSpace.copy(alpha = 0.98f),
                         ),
                     ),
                 )
@@ -211,7 +212,11 @@ fun WallpaperSetupDialog(
                     }
                 }
 
-                GlassSurface(modifier = Modifier.fillMaxWidth(), cornerRadius = 18.dp) {
+                GlassSurface(
+                    style = GlassSurfaceStyle.Dialog,
+                    modifier = Modifier.fillMaxWidth(),
+                    cornerRadius = 18.dp,
+                ) {
                     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),

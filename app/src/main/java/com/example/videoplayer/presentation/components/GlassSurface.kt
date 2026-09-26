@@ -10,20 +10,37 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.videoplayer.presentation.theme.GlassWhite
+import com.example.videoplayer.presentation.theme.GlassWhiteDialog
 import com.example.videoplayer.presentation.theme.GlassWhiteStrong
+import com.example.videoplayer.presentation.theme.GlassWhiteStrongDialog
+
+enum class GlassSurfaceStyle {
+    Default,
+    /** Slightly more opaque fill for modal dialogs (≈20% less transparent). */
+    Dialog,
+}
 
 @Composable
 fun GlassSurface(
     modifier: Modifier = Modifier,
     cornerRadius: Dp = 20.dp,
+    style: GlassSurfaceStyle = GlassSurfaceStyle.Default,
     content: @Composable () -> Unit,
 ) {
     val shape = RoundedCornerShape(cornerRadius)
+    val fill = when (style) {
+        GlassSurfaceStyle.Default -> GlassWhite
+        GlassSurfaceStyle.Dialog -> GlassWhiteDialog
+    }
+    val stroke = when (style) {
+        GlassSurfaceStyle.Default -> GlassWhiteStrong
+        GlassSurfaceStyle.Dialog -> GlassWhiteStrongDialog
+    }
     Box(
         modifier = modifier
             .clip(shape)
-            .background(GlassWhite)
-            .border(1.dp, GlassWhiteStrong, shape),
+            .background(fill)
+            .border(1.dp, stroke, shape),
     ) {
         content()
     }

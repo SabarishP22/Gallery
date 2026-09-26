@@ -11,6 +11,7 @@ import com.example.videoplayer.domain.model.TrashDeleteRequest
 import com.example.videoplayer.domain.usecase.FilterAndSortMediaUseCase
 import com.example.videoplayer.domain.usecase.GetStorageStatsUseCase
 import com.example.videoplayer.domain.usecase.TrashMediaUseCase
+import com.example.videoplayer.util.WallpaperImageCache
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
@@ -52,14 +53,11 @@ class GalleryViewModel(
         viewModelScope.launch {
             runCatching { migrateWallpaperUseCase() }
             observeWallpaperSettingsUseCase().collect { settings ->
-                val contentVersion = settings.imageUri?.let {
-                    appContainer.wallpaperRepository.storedContentVersion()
-                } ?: 0L
                 _uiState.update {
                     it.copy(
                         wallpaperUri = settings.imageUri,
                         wallpaperBlurDp = settings.blurRadiusDp,
-                        wallpaperContentVersion = contentVersion,
+                        wallpaperContentVersion = settings.contentRevision,
                     )
                 }
                 if (settings.imageUri != lastSyncedWallpaperUri) {
@@ -442,17 +440,36 @@ class GalleryViewModel(
         _uiState.update { it.copy(wallpaperDialogMedia = null) }
     }
 
+    fun clearSnackbarMessage() {
+        _uiState.update { it.copy(snackbarMessage = null) }
+    }
+
     fun saveWallpaper(uri: Uri, blurDp: Float) {
         viewModelScope.launch {
+            val previous = _uiState.value
             saveWallpaperUseCase(uri, blurDp)
                 .onSuccess { saved ->
+                    val context = appContainer.application
+                    WallpaperImageCache.invalidate(
+                        context,
+                        previous.wallpaperUri,
+                        previous.wallpaperContentVersion,
+                        previous.wallpaperBlurDp,
+                    )
+                    WallpaperImageCache.invalidate(
+                        context,
+                        saved.uri,
+                        saved.contentRevision,
+                        blurDp,
+                    )
                     lastSyncedWallpaperUri = saved.uri
                     _uiState.update {
                         it.copy(
                             wallpaperUri = saved.uri,
                             wallpaperBlurDp = blurDp,
-                            wallpaperContentVersion = saved.contentVersion,
+                            wallpaperContentVersion = saved.contentRevision,
                             wallpaperDialogMedia = null,
+                            snackbarMessage = "Background updated",
                         )
                     }
                     syncLauncherInBackground(saved.uri)
@@ -470,14 +487,22 @@ class GalleryViewModel(
 
     fun clearWallpaper() {
         viewModelScope.launch {
-            clearWallpaperUseCase()
+            val previous = _uiState.value
+            val revision = clearWallpaperUseCase()
+            WallpaperImageCache.invalidate(
+                appContainer.application,
+                previous.wallpaperUri,
+                previous.wallpaperContentVersion,
+                previous.wallpaperBlurDp,
+            )
             lastSyncedWallpaperUri = null
             _uiState.update {
                 it.copy(
                     wallpaperUri = null,
                     wallpaperBlurDp = 18f,
-                    wallpaperContentVersion = 0L,
+                    wallpaperContentVersion = revision,
                     wallpaperDialogMedia = null,
+                    snackbarMessage = "Background reset to default",
                 )
             }
             syncLauncherInBackground(null)

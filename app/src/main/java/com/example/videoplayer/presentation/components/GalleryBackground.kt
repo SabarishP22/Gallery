@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -23,6 +24,7 @@ import com.example.videoplayer.presentation.theme.AuroraCyan
 import com.example.videoplayer.presentation.theme.AuroraViolet
 import com.example.videoplayer.presentation.theme.DeepSpace
 import com.example.videoplayer.presentation.theme.DeepSpaceElevated
+import com.example.videoplayer.util.WallpaperImageCache
 import java.io.File
 
 @Composable
@@ -35,10 +37,10 @@ fun GalleryBackground(
 ) {
     val context = LocalContext.current
     val blurPx = with(LocalDensity.current) { wallpaperBlurDp.coerceIn(0f, 40f).dp.toPx() }
-    val cacheKey = remember(wallpaperUri, wallpaperContentVersion) {
-        "wallpaper-${wallpaperUri.orEmpty()}-v$wallpaperContentVersion"
+    val cacheKey = remember(wallpaperUri, wallpaperContentVersion, wallpaperBlurDp) {
+        WallpaperImageCache.cacheKey(wallpaperUri, wallpaperContentVersion, wallpaperBlurDp)
     }
-    val wallpaperRequest = remember(wallpaperUri, wallpaperContentVersion, cacheKey) {
+    val wallpaperRequest = remember(wallpaperUri, wallpaperContentVersion, wallpaperBlurDp, cacheKey) {
         wallpaperUri?.let { uriString ->
             val data = Uri.parse(uriString).path?.let { File(it) } ?: Uri.parse(uriString)
             ImageRequest.Builder(context)
@@ -58,31 +60,33 @@ fun GalleryBackground(
 
     Box(modifier = modifier.fillMaxSize()) {
         if (wallpaperRequest != null) {
-            AsyncImage(
-                model = wallpaperRequest,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .then(
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && blurPx > 0.5f) {
-                            Modifier.graphicsLayer {
-                                renderEffect = androidx.compose.ui.graphics.BlurEffect(
-                                    blurPx,
-                                    blurPx,
-                                    androidx.compose.ui.graphics.TileMode.Clamp,
-                                )
-                            }
-                        } else if (blurPx > 0.5f) {
-                            Modifier.graphicsLayer {
-                                scaleX = 1.12f
-                                scaleY = 1.12f
-                            }
-                        } else {
-                            Modifier
-                        },
-                    ),
-            )
+            key(cacheKey) {
+                AsyncImage(
+                    model = wallpaperRequest,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .then(
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && blurPx > 0.5f) {
+                                Modifier.graphicsLayer {
+                                    renderEffect = androidx.compose.ui.graphics.BlurEffect(
+                                        blurPx,
+                                        blurPx,
+                                        androidx.compose.ui.graphics.TileMode.Clamp,
+                                    )
+                                }
+                            } else if (blurPx > 0.5f) {
+                                Modifier.graphicsLayer {
+                                    scaleX = 1.12f
+                                    scaleY = 1.12f
+                                }
+                            } else {
+                                Modifier
+                            },
+                        ),
+                )
+            }
             Box(
                 modifier = Modifier
                     .fillMaxSize()

@@ -55,6 +55,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.videoplayer.domain.model.StorageStats
 import com.example.videoplayer.presentation.components.GlassSurface
+import com.example.videoplayer.presentation.components.GlassSurfaceStyle
 import com.example.videoplayer.presentation.theme.AuroraCyan
 import com.example.videoplayer.presentation.theme.AuroraViolet
 import com.example.videoplayer.presentation.theme.DeepSpace
@@ -89,6 +90,7 @@ fun StorageDetailsDialog(
             exit = fadeOut(tween(140)) + scaleOut(targetScale = 0.94f),
         ) {
             GlassSurface(
+                style = GlassSurfaceStyle.Dialog,
                 modifier = Modifier
                     .fillMaxWidth(0.92f)
                     .padding(vertical = 8.dp),

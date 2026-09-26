@@ -34,6 +34,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.videoplayer.domain.model.SortOrder
 import com.example.videoplayer.presentation.components.GlassSurface
+import com.example.videoplayer.presentation.components.GlassSurfaceStyle
 import com.example.videoplayer.presentation.theme.AuroraCyan
 import com.example.videoplayer.presentation.theme.AuroraViolet
 import com.example.videoplayer.presentation.theme.TextPrimary
@@ -67,6 +68,7 @@ fun SortPickerDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         GlassSurface(
+            style = GlassSurfaceStyle.Dialog,
             modifier = Modifier
                 .fillMaxWidth(0.92f)
                 .padding(vertical = 8.dp),

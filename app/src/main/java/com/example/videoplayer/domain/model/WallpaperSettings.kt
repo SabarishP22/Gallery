@@ -1,6 +1,7 @@
-package com.example.videoplayer.domain.model
-
-data class WallpaperSettings(
-    val imageUri: String? = null,
-    val blurRadiusDp: Float = 18f,
-)
+package com.example.videoplayer.domain.model
+
+data class WallpaperSettings(
+    val imageUri: String? = null,
+    val blurRadiusDp: Float = 18f,
+    val contentRevision: Long = 0L,
+)

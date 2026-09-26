@@ -5,9 +5,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.graphics.Color
 import androidx.activity.compose.BackHandler
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -29,36 +34,48 @@ fun GalleryNavHost(
 ) {
     val state by viewModel.uiState.collectAsState()
     val viewerId = state.viewerMediaId
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(state.snackbarMessage) {
+        val message = state.snackbarMessage ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(message)
+        viewModel.clearSnackbarMessage()
+    }
 
     BackHandler(enabled = viewerId != null) {
         viewModel.closeViewer()
     }
 
-    GalleryBackground(
-        wallpaperUri = state.wallpaperUri,
-        wallpaperBlurDp = state.wallpaperBlurDp,
-        wallpaperContentVersion = state.wallpaperContentVersion,
-        modifier = Modifier.fillMaxSize(),
+    Scaffold(
+        containerColor = Color.Transparent,
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            if (viewerId == null) {
-                GalleryScreen(
-                    viewModel = viewModel,
-                    onOpenMedia = { id -> viewModel.openMedia(id) },
-                )
-            } else {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black),
-                ) {
-                    val (items, index) = viewModel.pagerMediaFor(viewerId)
-                    MediaViewerScreen(
-                        items = items,
-                        startIndex = index,
-                        onBack = { viewModel.closeViewer() },
-                        onWallpaperRequest = { media -> viewModel.openWallpaperDialog(media) },
+        GalleryBackground(
+            wallpaperUri = state.wallpaperUri,
+            wallpaperBlurDp = state.wallpaperBlurDp,
+            wallpaperContentVersion = state.wallpaperContentVersion,
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                if (viewerId == null) {
+                    GalleryScreen(
+                        viewModel = viewModel,
+                        onOpenMedia = { id -> viewModel.openMedia(id) },
                     )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black),
+                    ) {
+                        val (items, index) = viewModel.pagerMediaFor(viewerId)
+                        MediaViewerScreen(
+                            items = items,
+                            startIndex = index,
+                            onBack = { viewModel.closeViewer() },
+                            onWallpaperRequest = { media -> viewModel.openWallpaperDialog(media) },
+                        )
+                    }
                 }
             }
         }

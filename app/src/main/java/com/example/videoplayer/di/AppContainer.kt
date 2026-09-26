@@ -25,7 +25,9 @@ import com.example.videoplayer.domain.usecase.SaveWallpaperUseCase
 import com.example.videoplayer.domain.usecase.SyncWallpaperLauncherUseCase
 import com.example.videoplayer.domain.usecase.TrashMediaUseCase
 
-class AppContainer(application: Application) {
+class AppContainer(
+    val application: Application,
+) {
 
     private val mediaStoreDataSource = MediaStoreDataSource(application)
     private val storageStatsDataSource = StorageStatsDataSource(application)

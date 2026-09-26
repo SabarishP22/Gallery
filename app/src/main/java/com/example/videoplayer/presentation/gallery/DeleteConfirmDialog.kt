@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.videoplayer.presentation.components.GlassSurface
+import com.example.videoplayer.presentation.components.GlassSurfaceStyle
 import com.example.videoplayer.presentation.theme.AuroraCyan
 import com.example.videoplayer.presentation.theme.DeepSpace
 import com.example.videoplayer.presentation.theme.TextPrimary
@@ -61,6 +62,7 @@ fun DeleteConfirmDialog(
         ),
     ) {
         GlassSurface(
+            style = GlassSurfaceStyle.Dialog,
             modifier = Modifier
                 .fillMaxWidth(0.9f)
                 .padding(vertical = 8.dp)

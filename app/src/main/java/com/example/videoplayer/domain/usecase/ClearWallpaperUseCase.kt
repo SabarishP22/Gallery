@@ -5,8 +5,8 @@ import com.example.videoplayer.domain.repository.WallpaperRepository
 class ClearWallpaperUseCase(
     private val wallpaperRepository: WallpaperRepository,
 ) {
-    suspend operator fun invoke() {
+    suspend operator fun invoke(): Long {
         wallpaperRepository.deleteStoredFile()
-        wallpaperRepository.clear()
+        return wallpaperRepository.clear()
     }
 }

@@ -41,6 +41,7 @@ data class GalleryUiState(
     val storageStatsLoading: Boolean = false,
     val storageStats: StorageStats? = null,
     val storageStatsError: String? = null,
+    val snackbarMessage: String? = null,
 ) {
     fun gridRowsFor(filter: MediaFilter): List<GalleryGridRow> = when (filter) {
         MediaFilter.ALL -> gridRowsAll

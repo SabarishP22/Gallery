@@ -7,8 +7,8 @@ import kotlinx.coroutines.flow.Flow
 
 interface WallpaperRepository {
     val settings: Flow<WallpaperSettings>
-    suspend fun save(imageUri: String, blurRadiusDp: Float)
-    suspend fun clear()
+    suspend fun save(imageUri: String, blurRadiusDp: Float): Long
+    suspend fun clear(): Long
     suspend fun persistFromSourceUri(sourceUri: Uri): Result<SavedWallpaper>
     fun storedFileUri(): String?
     fun storedContentVersion(): Long

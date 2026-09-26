@@ -43,12 +43,16 @@ class WallpaperFileStorage(
 
         FileOutputStream(outFile).use { output ->
             scaled.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, output)
+            output.fd.sync()
         }
         if (!scaled.isRecycled) scaled.recycle()
 
+        val version = System.currentTimeMillis()
+        outFile.setLastModified(version)
+
         PersistedWallpaper(
             uriString = Uri.fromFile(outFile).toString(),
-            contentVersion = outFile.lastModified(),
+            contentVersion = version,
         )
     }
 
