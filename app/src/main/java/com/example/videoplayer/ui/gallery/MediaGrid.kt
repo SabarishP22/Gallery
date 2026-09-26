@@ -26,7 +26,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -37,29 +36,13 @@ import com.example.videoplayer.data.GalleryMedia
 import com.example.videoplayer.ui.theme.AuroraCyan
 import com.example.videoplayer.ui.theme.DeepSpace
 import com.example.videoplayer.ui.theme.TextPrimary
-import com.example.videoplayer.util.formatDateHeader
 import com.example.videoplayer.util.formatDuration
 import com.example.videoplayer.util.mediaThumbnailRequest
-
-private sealed interface GridEntry {
-    val key: String
-    val contentType: Int
-
-    data class Header(val title: String) : GridEntry {
-        override val key: String = "header-$title"
-        override val contentType: Int = 0
-    }
-
-    data class Item(val media: GalleryMedia) : GridEntry {
-        override val key: String = "media-${media.id}"
-        override val contentType: Int = 1
-    }
-}
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MediaGrid(
-    items: List<GalleryMedia>,
+    rows: List<GalleryGridRow>,
     columns: Int,
     gridState: LazyGridState,
     selectedIds: Set<Long>,
@@ -68,60 +51,52 @@ fun MediaGrid(
     onLongClick: (GalleryMedia) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val entries = remember(items) {
-        val grouped = items.groupBy { formatDateHeader(it.dateAddedSec) }
-            .toList()
-            .sortedByDescending { (_, group) -> group.maxOf { it.dateAddedSec } }
-        buildList {
-            grouped.forEach { (header, groupItems) ->
-                add(GridEntry.Header(header))
-                groupItems.forEach { add(GridEntry.Item(it)) }
-            }
-        }
-    }
-
     LazyVerticalGrid(
-            state = gridState,
-            modifier = modifier.fillMaxSize(),
-            columns = GridCells.Fixed(columns),
-            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            items(
-                items = entries,
-                key = { it.key },
-                contentType = { it.contentType },
-                span = { entry ->
-                    if (entry is GridEntry.Header) GridItemSpan(maxLineSpan) else GridItemSpan(1)
-                },
-            ) { entry ->
-                when (entry) {
-                    is GridEntry.Header -> {
-                        Text(
-                            text = entry.title,
-                            modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = TextPrimary,
-                        )
-                    }
-                    is GridEntry.Item -> {
-                        MediaGridItem(
-                            media = entry.media,
-                            selected = entry.media.id in selectedIds,
-                            selectionMode = selectionMode,
-                            gridColumns = columns,
-                            onClick = { onClick(entry.media) },
-                            onLongClick = { onLongClick(entry.media) },
-                        )
-                    }
+        state = gridState,
+        modifier = modifier.fillMaxSize(),
+        columns = GridCells.Fixed(columns),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        items(
+            items = rows,
+            key = { it.stableKey },
+            contentType = { row ->
+                when (row) {
+                    is GalleryGridRow.Header -> 0
+                    is GalleryGridRow.Cell -> 1
+                }
+            },
+            span = { row ->
+                if (row is GalleryGridRow.Header) GridItemSpan(maxLineSpan) else GridItemSpan(1)
+            },
+        ) { row ->
+            when (row) {
+                is GalleryGridRow.Header -> {
+                    Text(
+                        text = row.title,
+                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = TextPrimary,
+                    )
+                }
+                is GalleryGridRow.Cell -> {
+                    MediaGridItem(
+                        media = row.media,
+                        selected = row.media.id in selectedIds,
+                        selectionMode = selectionMode,
+                        gridColumns = columns,
+                        onClick = { onClick(row.media) },
+                        onLongClick = { onLongClick(row.media) },
+                    )
                 }
             }
         }
+    }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun MediaGridItem(
     media: GalleryMedia,
@@ -134,19 +109,18 @@ private fun MediaGridItem(
     val context = LocalContext.current
     val thumbSize = remember(gridColumns) {
         when {
-            gridColumns <= 2 -> 540
-            gridColumns <= 4 -> 360
-            else -> 240
+            gridColumns <= 2 -> 400
+            gridColumns <= 4 -> 280
+            else -> 180
         }
     }
     val request = remember(media.id, thumbSize) {
         mediaThumbnailRequest(context, media, thumbSize)
     }
-
     Box(
         modifier = Modifier
             .aspectRatio(1f)
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(12.dp))
             .background(DeepSpace)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick),
     ) {
@@ -157,23 +131,14 @@ private fun MediaGridItem(
             modifier = Modifier.fillMaxSize(),
         )
         if (media.isVideo) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(Color.Transparent, Color.Black.copy(alpha = 0.5f)),
-                        ),
-                    ),
-            )
             Text(
                 text = formatDuration(media.durationMs),
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .padding(8.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color.Black.copy(alpha = 0.55f))
-                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                    .padding(6.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color.Black.copy(alpha = 0.6f))
+                    .padding(horizontal = 5.dp, vertical = 2.dp),
                 style = MaterialTheme.typography.labelSmall,
                 color = TextPrimary,
             )
@@ -183,8 +148,8 @@ private fun MediaGridItem(
                 tint = TextPrimary,
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .background(AuroraCyan.copy(alpha = 0.35f), RoundedCornerShape(50))
-                    .padding(6.dp),
+                    .background(AuroraCyan.copy(alpha = 0.32f), RoundedCornerShape(50))
+                    .padding(5.dp),
             )
         }
         if (selectionMode) {
@@ -194,7 +159,7 @@ private fun MediaGridItem(
                 tint = if (selected) AuroraCyan else TextPrimary.copy(alpha = 0.45f),
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(6.dp),
+                    .padding(5.dp),
             )
         }
     }

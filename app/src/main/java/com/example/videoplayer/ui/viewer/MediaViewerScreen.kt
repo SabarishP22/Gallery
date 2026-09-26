@@ -102,6 +102,7 @@ fun MediaViewerScreen(
     var photoZoomed by remember { mutableStateOf(false) }
 
     val activity = context as? Activity
+    ImmersiveViewerSystemBars(enabled = true)
     DisposableEffect(activity) {
         val controller = activity?.let { ForcedOrientationController(it) }
         controller?.start()
@@ -154,7 +155,6 @@ fun MediaViewerScreen(
             exit = fadeOut(),
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .statusBarsPadding()
                 .padding(12.dp),
         ) {
             IconButton(
@@ -173,7 +173,6 @@ fun MediaViewerScreen(
             exit = fadeOut(),
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .statusBarsPadding()
                 .padding(12.dp),
         ) {
             Row {
@@ -396,16 +395,11 @@ private fun VideoPage(
             update = { it.player = if (isActive) player else null },
         )
 
-        BrightnessVolumeGestureLayer(
-            modifier = Modifier.fillMaxSize(),
-            enabled = isActive,
-        )
-
         if (isActive) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 108.dp)
+                    .padding(horizontal = 120.dp)
                     .pointerInput(media.id) {
                         detectTapGestures(
                             onTap = {
@@ -438,7 +432,6 @@ private fun VideoPage(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .fillMaxWidth()
-                        .statusBarsPadding()
                         .padding(12.dp),
                     cornerRadius = 16.dp,
                 ) {
@@ -507,7 +500,19 @@ private fun VideoPage(
                         )
                     }
                     IconButton(onClick = {
-                        if (player.isPlaying) player.pause() else player.play()
+                        when {
+                            player.playbackState == Player.STATE_ENDED -> {
+                                player.seekTo(0)
+                                player.playWhenReady = true
+                                player.prepare()
+                                player.play()
+                            }
+                            player.isPlaying -> player.pause()
+                            else -> {
+                                player.playWhenReady = true
+                                player.play()
+                            }
+                        }
                     }) {
                         Icon(
                             imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
@@ -563,5 +568,10 @@ private fun VideoPage(
                 }
             }
         }
+
+        BrightnessVolumeGestureLayer(
+            modifier = Modifier.fillMaxSize(),
+            enabled = isActive,
+        )
     }
 }

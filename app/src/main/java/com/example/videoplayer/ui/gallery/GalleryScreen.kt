@@ -160,7 +160,7 @@ fun GalleryScreen(
                 }
                 else -> {
                     MediaGrid(
-                        items = mediaItems,
+                        rows = state.gridRows,
                         columns = state.gridColumns,
                         gridState = gridState,
                         selectedIds = state.selectedIds,

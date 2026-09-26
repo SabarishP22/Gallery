@@ -29,6 +29,7 @@ data class GalleryUiState(
     val permissionGranted: Boolean = false,
     val activeMediaId: Long? = null,
     val displayItems: List<GalleryMedia> = emptyList(),
+    val gridRows: List<GalleryGridRow> = emptyList(),
 )
 
 class GalleryViewModel(application: Application) : AndroidViewModel(application) {
@@ -93,12 +94,14 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
             }
             runCatching { repository.loadAllMedia() }
                 .onSuccess { media ->
-                    _uiState.update {
-                        it.copy(
+                    _uiState.update { state ->
+                        val filtered = computeFiltered(state.copy(allMedia = media))
+                        state.copy(
                             isLoading = false,
                             isRefreshing = false,
                             allMedia = media,
-                            displayItems = computeFiltered(it.copy(allMedia = media)),
+                            displayItems = filtered,
+                            gridRows = buildGalleryGridRows(filtered),
                         )
                     }
                 }
@@ -115,15 +118,27 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun setFilter(filter: MediaFilter) {
-        _uiState.update { it.copy(filter = filter, displayItems = computeFiltered(it.copy(filter = filter))) }
+        _uiState.update { state ->
+            val next = state.copy(filter = filter)
+            val filtered = computeFiltered(next)
+            next.copy(displayItems = filtered, gridRows = buildGalleryGridRows(filtered))
+        }
     }
 
     fun setSearchQuery(query: String) {
-        _uiState.update { it.copy(searchQuery = query, displayItems = computeFiltered(it.copy(searchQuery = query))) }
+        _uiState.update { state ->
+            val next = state.copy(searchQuery = query)
+            val filtered = computeFiltered(next)
+            next.copy(displayItems = filtered, gridRows = buildGalleryGridRows(filtered))
+        }
     }
 
     fun setSortOrder(order: SortOrder) {
-        _uiState.update { it.copy(sortOrder = order, displayItems = computeFiltered(it.copy(sortOrder = order))) }
+        _uiState.update { state ->
+            val next = state.copy(sortOrder = order)
+            val filtered = computeFiltered(next)
+            next.copy(displayItems = filtered, gridRows = buildGalleryGridRows(filtered))
+        }
     }
 
     fun toggleGridColumns() {
