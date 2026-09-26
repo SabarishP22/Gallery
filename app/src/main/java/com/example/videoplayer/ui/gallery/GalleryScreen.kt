@@ -5,16 +5,16 @@ import android.content.Intent
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.GridView
@@ -40,6 +40,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -57,10 +58,12 @@ import com.example.videoplayer.ui.theme.TextSecondary
 @Composable
 fun GalleryScreen(
     viewModel: GalleryViewModel,
-    onOpenPhoto: (Long) -> Unit,
-    onOpenVideo: (Long) -> Unit,
+    onOpenMedia: (Long) -> Unit,
 ) {
     val state by viewModel.uiState.collectAsState()
+    val mediaItems by remember(state.allMedia, state.filter, state.searchQuery, state.sortOrder) {
+        derivedStateOf { viewModel.filteredMedia(state) }
+    }
     val context = LocalContext.current
     var showSearch by remember { mutableStateOf(false) }
     var showSortMenu by remember { mutableStateOf(false) }
@@ -84,9 +87,15 @@ fun GalleryScreen(
         val granted = permissions.all {
             ContextCompat.checkSelfPermission(context, it) == android.content.pm.PackageManager.PERMISSION_GRANTED
         }
-        if (granted) viewModel.onPermissionResult(true)
-        else permissionLauncher.launch(permissions)
+        viewModel.handleInitialPermissionCheck(alreadyGranted = granted) {
+            permissionLauncher.launch(permissions)
+        }
     }
+
+    val gridState = rememberLazyGridState(
+        initialFirstVisibleItemIndex = state.gridScrollIndex,
+        initialFirstVisibleItemScrollOffset = state.gridScrollOffset,
+    )
 
     Column(
         modifier = Modifier
@@ -100,6 +109,7 @@ fun GalleryScreen(
             searchQuery = state.searchQuery,
             onToggleSearch = { showSearch = !showSearch },
             onSearchChange = viewModel::setSearchQuery,
+            isRefreshing = state.isRefreshing,
             onRefresh = viewModel::refreshMedia,
             onToggleGrid = viewModel::toggleGridColumns,
             onShowSort = { showSortMenu = true },
@@ -131,47 +141,46 @@ fun GalleryScreen(
 
         Box(modifier = Modifier.fillMaxSize()) {
             when {
-                state.isLoading -> {
+                state.isLoading && state.allMedia.isEmpty() -> {
                     CircularProgressIndicator(
                         modifier = Modifier.align(Alignment.Center),
                         color = AuroraCyan,
                     )
                 }
-                state.errorMessage != null -> {
+                state.errorMessage != null && state.allMedia.isEmpty() -> {
                     EmptyState(
                         modifier = Modifier.align(Alignment.Center),
                         message = state.errorMessage ?: "Something went wrong.",
                     )
                 }
-                viewModel.filteredMedia(state).isEmpty() -> {
+                mediaItems.isEmpty() -> {
                     EmptyState(
                         modifier = Modifier.align(Alignment.Center),
                         message = if (state.searchQuery.isNotBlank()) "No matches for your search." else "No media found on this device.",
                     )
                 }
                 else -> {
-                    val media = viewModel.filteredMedia(state)
-                    AnimatedContent(
-                        targetState = state.filter,
-                        transitionSpec = { fadeIn() togetherWith fadeOut() },
-                        label = "filterContent",
-                    ) {
-                        MediaGrid(
-                            items = media,
-                            columns = state.gridColumns,
-                            selectedIds = state.selectedIds,
-                            selectionMode = state.selectionMode,
-                            onClick = { item ->
-                                if (state.selectionMode) {
-                                    viewModel.toggleSelection(item.id)
-                                } else {
-                                    viewModel.openMedia(item.id)
-                                    if (item.isVideo) onOpenVideo(item.id) else onOpenPhoto(item.id)
-                                }
-                            },
-                            onLongClick = { item -> viewModel.toggleSelection(item.id) },
-                        )
-                    }
+                    MediaGrid(
+                        items = mediaItems,
+                        columns = state.gridColumns,
+                        gridState = gridState,
+                        selectedIds = state.selectedIds,
+                        selectionMode = state.selectionMode,
+                        onClick = { item ->
+                            if (state.selectionMode) {
+                                viewModel.toggleSelection(item.id)
+                            } else {
+                                viewModel.saveGridScroll(
+                                    gridState.firstVisibleItemIndex,
+                                    gridState.firstVisibleItemScrollOffset,
+                                )
+                                viewModel.openMedia(item.id)
+                                onOpenMedia(item.id)
+                            }
+                        },
+                        onLongClick = { item -> viewModel.toggleSelection(item.id) },
+                        onPinchColumnChange = viewModel::setGridColumns,
+                    )
                 }
             }
         }
@@ -184,6 +193,7 @@ private fun GalleryTopBar(
     selectedCount: Int,
     showSearch: Boolean,
     searchQuery: String,
+    isRefreshing: Boolean,
     onToggleSearch: () -> Unit,
     onSearchChange: (String) -> Unit,
     onRefresh: () -> Unit,
@@ -193,12 +203,13 @@ private fun GalleryTopBar(
     onShareSelection: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        Box(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(modifier = Modifier.align(Alignment.CenterStart)) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = if (selectionMode) "$selectedCount selected" else "Aura Gallery",
                     style = MaterialTheme.typography.headlineSmall,
@@ -213,27 +224,43 @@ private fun GalleryTopBar(
                     )
                 }
             }
-            Box(modifier = Modifier.align(Alignment.CenterEnd)) {
-                if (selectionMode) {
-                    IconButton(onClick = onShareSelection) {
-                        Icon(Icons.Default.Share, contentDescription = "Share")
+            if (selectionMode) {
+                IconButton(onClick = onShareSelection) {
+                    Icon(Icons.Default.Share, contentDescription = "Share")
+                }
+                IconButton(onClick = onClearSelection) {
+                    Icon(Icons.Default.Close, contentDescription = "Clear selection")
+                }
+            } else {
+                IconButton(onClick = onRefresh, enabled = !isRefreshing) {
+                    if (isRefreshing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(22.dp),
+                            color = AuroraCyan,
+                            strokeWidth = 2.dp,
+                        )
+                    } else {
+                        Icon(Icons.Default.Refresh, contentDescription = "Refresh library")
                     }
-                    IconButton(onClick = onClearSelection) {
-                        Icon(Icons.Default.Close, contentDescription = "Clear selection")
-                    }
-                } else {
-                    IconButton(onClick = onToggleSearch) {
-                        Icon(Icons.Default.Search, contentDescription = "Search")
-                    }
-                    IconButton(onClick = onShowSort) {
-                        Icon(Icons.Default.Sort, contentDescription = "Sort")
-                    }
-                    IconButton(onClick = onToggleGrid) {
-                        Icon(Icons.Default.GridView, contentDescription = "Grid size")
-                    }
-                    IconButton(onClick = onRefresh) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Refresh")
-                    }
+                }
+            }
+        }
+        if (!selectionMode) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp)
+                    .padding(bottom = 4.dp),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                IconButton(onClick = onToggleSearch) {
+                    Icon(Icons.Default.Search, contentDescription = "Search")
+                }
+                IconButton(onClick = onShowSort) {
+                    Icon(Icons.Default.Sort, contentDescription = "Sort")
+                }
+                IconButton(onClick = onToggleGrid) {
+                    Icon(Icons.Default.GridView, contentDescription = "Grid size")
                 }
             }
         }

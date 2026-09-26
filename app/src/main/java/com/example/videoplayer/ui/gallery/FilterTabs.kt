@@ -52,7 +52,10 @@ fun FilterTabs(
     val density = LocalDensity.current
     val indicatorOffset by animateDpAsState(
         targetValue = with(density) { (selectedIndex * tabWidthPx).toDp() },
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioLowBouncy,
+            stiffness = Spring.StiffnessMedium,
+        ),
         label = "tabIndicator",
     )
 

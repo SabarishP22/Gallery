@@ -15,11 +15,14 @@ import kotlinx.coroutines.launch
 
 data class GalleryUiState(
     val isLoading: Boolean = true,
+    val isRefreshing: Boolean = false,
     val allMedia: List<GalleryMedia> = emptyList(),
     val filter: MediaFilter = MediaFilter.ALL,
     val searchQuery: String = "",
     val sortOrder: SortOrder = SortOrder.DATE_NEWEST,
     val gridColumns: Int = 3,
+    val gridScrollIndex: Int = 0,
+    val gridScrollOffset: Int = 0,
     val selectionMode: Boolean = false,
     val selectedIds: Set<Long> = emptySet(),
     val errorMessage: String? = null,
@@ -34,27 +37,74 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
     private val _uiState = MutableStateFlow(GalleryUiState())
     val uiState: StateFlow<GalleryUiState> = _uiState.asStateFlow()
 
+    private var permissionCheckHandled = false
+
+    fun handleInitialPermissionCheck(alreadyGranted: Boolean, requestPermissions: () -> Unit) {
+        if (permissionCheckHandled) return
+        permissionCheckHandled = true
+        if (alreadyGranted) {
+            onPermissionGranted(loadIfEmpty = true)
+        } else {
+            requestPermissions()
+        }
+    }
+
     fun onPermissionResult(granted: Boolean) {
-        _uiState.update { it.copy(permissionGranted = granted) }
-        if (granted) refreshMedia()
-        else {
+        if (granted) {
+            onPermissionGranted(loadIfEmpty = true)
+        } else {
             _uiState.update {
-                it.copy(isLoading = false, errorMessage = "Storage permission is required to browse your gallery.")
+                it.copy(
+                    permissionGranted = false,
+                    isLoading = false,
+                    errorMessage = "Storage permission is required to browse your gallery.",
+                )
             }
         }
     }
 
+    private fun onPermissionGranted(loadIfEmpty: Boolean) {
+        _uiState.update { it.copy(permissionGranted = true, errorMessage = null) }
+        if (loadIfEmpty && _uiState.value.allMedia.isEmpty()) {
+            loadMedia(showFullScreenLoading = true)
+        } else {
+            _uiState.update { it.copy(isLoading = false) }
+        }
+    }
+
     fun refreshMedia() {
+        loadMedia(showFullScreenLoading = false)
+    }
+
+    fun saveGridScroll(index: Int, offset: Int) {
+        _uiState.update { it.copy(gridScrollIndex = index, gridScrollOffset = offset) }
+    }
+
+    private fun loadMedia(showFullScreenLoading: Boolean) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            val showBlockingLoader = showFullScreenLoading && _uiState.value.allMedia.isEmpty()
+            _uiState.update {
+                it.copy(
+                    isLoading = showBlockingLoader,
+                    isRefreshing = !showBlockingLoader,
+                    errorMessage = null,
+                )
+            }
             runCatching { repository.loadAllMedia() }
                 .onSuccess { media ->
-                    _uiState.update { it.copy(isLoading = false, allMedia = media) }
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            isRefreshing = false,
+                            allMedia = media,
+                        )
+                    }
                 }
                 .onFailure { error ->
                     _uiState.update {
                         it.copy(
                             isLoading = false,
+                            isRefreshing = false,
                             errorMessage = error.message ?: "Could not load media.",
                         )
                     }
@@ -79,10 +129,15 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
             val next = when (it.gridColumns) {
                 2 -> 3
                 3 -> 4
+                4 -> 5
                 else -> 2
             }
             it.copy(gridColumns = next)
         }
+    }
+
+    fun setGridColumns(columns: Int) {
+        _uiState.update { it.copy(gridColumns = columns.coerceIn(2, 7)) }
     }
 
     fun openMedia(id: Long) {
@@ -131,9 +186,9 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
 
     fun mediaById(id: Long): GalleryMedia? = _uiState.value.allMedia.find { it.id == id }
 
-    fun imageMediaForPager(currentId: Long): Pair<List<GalleryMedia>, Int> {
-        val images = filteredMedia().filter { !it.isVideo }
-        val index = images.indexOfFirst { it.id == currentId }.coerceAtLeast(0)
-        return images to index
+    fun pagerMediaFor(currentId: Long): Pair<List<GalleryMedia>, Int> {
+        val list = filteredMedia()
+        val index = list.indexOfFirst { it.id == currentId }.coerceAtLeast(0)
+        return list to index
     }
 }
