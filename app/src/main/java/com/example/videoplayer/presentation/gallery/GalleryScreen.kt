@@ -76,6 +76,7 @@ import com.example.videoplayer.presentation.theme.TextPrimary
 import com.example.videoplayer.presentation.theme.TextSecondary
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -93,6 +94,29 @@ fun GalleryScreen(
     val pagerPosition by remember {
         derivedStateOf {
             filterPagerState.currentPage + filterPagerState.currentPageOffsetFraction
+        }
+    }
+
+    var tabUiFilter by remember { mutableStateOf(state.filter) }
+    var tapCommittedFilter by remember { mutableStateOf<MediaFilter?>(null) }
+
+    LaunchedEffect(state.filter) {
+        if (tapCommittedFilter == null && !filterPagerState.isScrollInProgress) {
+            tabUiFilter = state.filter
+        }
+    }
+
+    LaunchedEffect(filterPagerState, tabFilters) {
+        snapshotFlow {
+            filterPagerState.isScrollInProgress to pagerPosition
+        }.collect { (inProgress, position) ->
+            when {
+                tapCommittedFilter != null -> tabUiFilter = tapCommittedFilter!!
+                inProgress -> {
+                    val index = (position + 0.5f).roundToInt().coerceIn(0, tabFilters.lastIndex)
+                    tabUiFilter = tabFilters[index]
+                }
+            }
         }
     }
 
@@ -224,15 +248,18 @@ fun GalleryScreen(
         )
 
         FilterTabs(
-            selected = state.filter,
+            selected = tabUiFilter,
             pagerPosition = pagerPosition,
             onSelected = { filter ->
+                tapCommittedFilter = filter
+                tabUiFilter = filter
                 viewModel.setFilter(filter)
                 scope.launch {
                     filterPagerState.animateScrollToPage(
                         page = tabFilters.indexOf(filter).coerceAtLeast(0),
                         animationSpec = tween(durationMillis = 180),
                     )
+                    tapCommittedFilter = null
                 }
             },
             modifier = Modifier
