@@ -74,15 +74,15 @@ fun GalleryNavHost(
                 modifier = Modifier.fillMaxSize(),
             ) {
                 Box(modifier = Modifier.fillMaxSize()) {
-                    if (viewerId == null) {
-                        GalleryScreen(
-                            viewModel = viewModel,
-                            onOpenMedia = { id -> viewModel.openMedia(id) },
-                        )
-                    } else {
+                    GalleryScreen(
+                        viewModel = viewModel,
+                        onOpenMedia = { id -> viewModel.openMedia(id) },
+                    )
+                    if (viewerId != null) {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
+                                .zIndex(1f)
                                 .background(Color.Black),
                         ) {
                             val (items, index) = viewModel.pagerMediaFor(viewerId)

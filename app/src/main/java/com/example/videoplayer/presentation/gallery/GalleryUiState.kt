@@ -15,8 +15,12 @@ data class GalleryUiState(
     val isSearchFiltering: Boolean = false,
     val sortOrder: SortOrder = SortOrder.DATE_NEWEST,
     val gridColumns: Int = 3,
-    val gridScrollIndex: Int = 0,
-    val gridScrollOffset: Int = 0,
+    val gridScrollAllIndex: Int = 0,
+    val gridScrollAllOffset: Int = 0,
+    val gridScrollImagesIndex: Int = 0,
+    val gridScrollImagesOffset: Int = 0,
+    val gridScrollVideosIndex: Int = 0,
+    val gridScrollVideosOffset: Int = 0,
     val selectionMode: Boolean = false,
     val selectedIds: Set<Long> = emptySet(),
     val errorMessage: String? = null,
@@ -56,5 +60,17 @@ data class GalleryUiState(
         MediaFilter.ALL -> displayItemsAll
         MediaFilter.IMAGES -> displayItemsImages
         MediaFilter.VIDEOS -> displayItemsVideos
+    }
+
+    fun gridScrollIndexFor(filter: MediaFilter): Int = when (filter) {
+        MediaFilter.ALL -> gridScrollAllIndex
+        MediaFilter.IMAGES -> gridScrollImagesIndex
+        MediaFilter.VIDEOS -> gridScrollVideosIndex
+    }
+
+    fun gridScrollOffsetFor(filter: MediaFilter): Int = when (filter) {
+        MediaFilter.ALL -> gridScrollAllOffset
+        MediaFilter.IMAGES -> gridScrollImagesOffset
+        MediaFilter.VIDEOS -> gridScrollVideosOffset
     }
 }

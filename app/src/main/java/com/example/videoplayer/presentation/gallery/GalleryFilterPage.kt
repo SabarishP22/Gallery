@@ -22,7 +22,7 @@ internal fun GalleryFilterPage(
     onOpenMedia: (Long) -> Unit,
     onToggleSelection: (Long) -> Unit,
     onBeginSelection: (Long) -> Unit,
-    onSaveGridScroll: (Int, Int) -> Unit,
+    onSaveGridScroll: (MediaFilter, Int, Int) -> Unit,
 ) {
     if (rows.isEmpty()) {
         EmptyState(
@@ -52,6 +52,7 @@ internal fun GalleryFilterPage(
                     onToggleSelection(item.id)
                 } else {
                     onSaveGridScroll(
+                        pageFilter,
                         gridState.firstVisibleItemIndex,
                         gridState.firstVisibleItemScrollOffset,
                     )

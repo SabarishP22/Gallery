@@ -182,11 +182,17 @@ fun GalleryScreen(
     }
 
     val gridStateAll = rememberLazyGridState(
-        initialFirstVisibleItemIndex = state.gridScrollIndex,
-        initialFirstVisibleItemScrollOffset = state.gridScrollOffset,
+        initialFirstVisibleItemIndex = state.gridScrollIndexFor(MediaFilter.ALL),
+        initialFirstVisibleItemScrollOffset = state.gridScrollOffsetFor(MediaFilter.ALL),
     )
-    val gridStateImages = rememberLazyGridState()
-    val gridStateVideos = rememberLazyGridState()
+    val gridStateImages = rememberLazyGridState(
+        initialFirstVisibleItemIndex = state.gridScrollIndexFor(MediaFilter.IMAGES),
+        initialFirstVisibleItemScrollOffset = state.gridScrollOffsetFor(MediaFilter.IMAGES),
+    )
+    val gridStateVideos = rememberLazyGridState(
+        initialFirstVisibleItemIndex = state.gridScrollIndexFor(MediaFilter.VIDEOS),
+        initialFirstVisibleItemScrollOffset = state.gridScrollOffsetFor(MediaFilter.VIDEOS),
+    )
 
     Column(
         modifier = Modifier

@@ -104,8 +104,23 @@ class GalleryViewModel(
         loadMedia(showFullScreenLoading = false)
     }
 
-    fun saveGridScroll(index: Int, offset: Int) {
-        _uiState.update { it.copy(gridScrollIndex = index, gridScrollOffset = offset) }
+    fun saveGridScroll(filter: MediaFilter, index: Int, offset: Int) {
+        _uiState.update { state ->
+            when (filter) {
+                MediaFilter.ALL -> state.copy(
+                    gridScrollAllIndex = index,
+                    gridScrollAllOffset = offset,
+                )
+                MediaFilter.IMAGES -> state.copy(
+                    gridScrollImagesIndex = index,
+                    gridScrollImagesOffset = offset,
+                )
+                MediaFilter.VIDEOS -> state.copy(
+                    gridScrollVideosIndex = index,
+                    gridScrollVideosOffset = offset,
+                )
+            }
+        }
     }
 
     private fun loadMedia(showFullScreenLoading: Boolean) {
