@@ -89,7 +89,11 @@ fun GalleryNavHost(
                             MediaViewerScreen(
                                 items = items,
                                 startIndex = index,
+                                favoriteIds = state.favoriteIds,
+                                favoriteBurstNonce = state.favoriteBurstNonce,
                                 onBack = { viewModel.closeViewer() },
+                                onCurrentMediaChanged = viewModel::onViewerPageChanged,
+                                onToggleFavorite = { media -> viewModel.toggleFavoriteFromViewer(media.id) },
                                 onWallpaperRequest = { media -> viewModel.openWallpaperDialog(media) },
                             )
                         }

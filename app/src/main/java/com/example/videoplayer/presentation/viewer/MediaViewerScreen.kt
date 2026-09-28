@@ -28,8 +28,10 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Forward10
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay10
 import androidx.compose.material.icons.filled.Share
@@ -70,6 +72,7 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import com.example.videoplayer.util.NonTouchPlayerView
 import coil.compose.AsyncImage
 import com.example.videoplayer.domain.model.GalleryMedia
+import com.example.videoplayer.presentation.components.FavoriteBurstOverlay
 import com.example.videoplayer.presentation.components.GlassSurface
 import com.example.videoplayer.presentation.theme.AuroraCyan
 import com.example.videoplayer.presentation.theme.DeepSpace
@@ -90,7 +93,11 @@ import java.util.Locale
 fun MediaViewerScreen(
     items: List<GalleryMedia>,
     startIndex: Int,
+    favoriteIds: Set<Long>,
+    favoriteBurstNonce: Long,
     onBack: () -> Unit,
+    onCurrentMediaChanged: (Long) -> Unit = {},
+    onToggleFavorite: (GalleryMedia) -> Unit = {},
     onWallpaperRequest: (GalleryMedia) -> Unit = {},
 ) {
     if (items.isEmpty()) {
@@ -117,11 +124,16 @@ fun MediaViewerScreen(
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.currentPage }
             .distinctUntilChanged()
-            .collect {
+            .collect { page ->
                 chromeVisible = false
                 infoVisible = false
                 photoZoomed = false
+                onCurrentMediaChanged(items[page.coerceIn(0, items.lastIndex)].id)
             }
+    }
+
+    LaunchedEffect(Unit) {
+        onCurrentMediaChanged(items[safeStart].id)
     }
 
     Box(
@@ -243,6 +255,27 @@ fun MediaViewerScreen(
             )
         }
 
+        val isFavorite = current.id in favoriteIds
+        IconButton(
+            onClick = { onToggleFavorite(current) },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .navigationBarsPadding()
+                .padding(end = 12.dp, bottom = 12.dp)
+                .zIndex(600f)
+                .background(Color.Black.copy(alpha = 0.35f), MaterialTheme.shapes.medium),
+        ) {
+            Icon(
+                imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
+                tint = if (isFavorite) Color(0xFFFF5252) else Color.White,
+            )
+        }
+
+        FavoriteBurstOverlay(
+            playNonce = favoriteBurstNonce,
+            modifier = Modifier.zIndex(700f),
+        )
     }
 }
 

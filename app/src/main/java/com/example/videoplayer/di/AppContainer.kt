@@ -1,13 +1,16 @@
 package com.example.videoplayer.di
 
 import android.app.Application
+import com.example.videoplayer.data.repository.FavoritesRepositoryImpl
 import com.example.videoplayer.data.repository.LauncherIconRepositoryImpl
 import com.example.videoplayer.data.repository.MediaRepositoryImpl
 import com.example.videoplayer.data.repository.StorageStatsRepositoryImpl
 import com.example.videoplayer.data.repository.WallpaperRepositoryImpl
+import com.example.videoplayer.data.source.FavoritesPreferencesDataSource
 import com.example.videoplayer.data.source.LauncherIconDataSource
 import com.example.videoplayer.data.source.MediaStoreDataSource
 import com.example.videoplayer.data.source.StorageStatsDataSource
+import com.example.videoplayer.domain.repository.FavoritesRepository
 import com.example.videoplayer.data.source.WallpaperFileStorage
 import com.example.videoplayer.data.source.WallpaperPreferencesDataSource
 import com.example.videoplayer.domain.repository.LauncherIconRepository
@@ -34,8 +37,10 @@ class AppContainer(
     private val wallpaperPreferencesDataSource = WallpaperPreferencesDataSource(application)
     private val wallpaperFileStorage = WallpaperFileStorage(application)
     private val launcherIconDataSource = LauncherIconDataSource(application)
+    private val favoritesPreferencesDataSource = FavoritesPreferencesDataSource(application)
 
     val mediaRepository: MediaRepository = MediaRepositoryImpl(mediaStoreDataSource)
+    val favoritesRepository: FavoritesRepository = FavoritesRepositoryImpl(favoritesPreferencesDataSource)
     val storageStatsRepository: StorageStatsRepository = StorageStatsRepositoryImpl(storageStatsDataSource)
     val wallpaperRepository: WallpaperRepository = WallpaperRepositoryImpl(
         wallpaperPreferencesDataSource,

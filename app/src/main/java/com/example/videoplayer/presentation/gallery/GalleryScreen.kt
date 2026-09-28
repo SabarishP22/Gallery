@@ -32,8 +32,11 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SdStorage
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.Wallpaper
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.PhotoLibrary
+import com.example.videoplayer.presentation.components.FavoriteBurstOverlay
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -65,6 +68,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
 import com.example.videoplayer.domain.model.GalleryMedia
 import com.example.videoplayer.domain.model.MediaFilter
@@ -122,12 +126,17 @@ fun GalleryScreen(
     val rowsAll by remember { derivedStateOf { state.gridRowsAll } }
     val rowsImages by remember { derivedStateOf { state.gridRowsImages } }
     val rowsVideos by remember { derivedStateOf { state.gridRowsVideos } }
+    val rowsFavorites by remember { derivedStateOf { state.gridRowsFavorites } }
     val context = LocalContext.current
     var showSearch by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     BackHandler(enabled = state.selectionMode) {
         viewModel.clearSelection()
+    }
+
+    BackHandler(enabled = state.favoritesVisible && !state.selectionMode) {
+        viewModel.toggleFavoritesScreen()
     }
 
     val trashLauncher = rememberLauncherForActivityResult(
@@ -193,6 +202,22 @@ fun GalleryScreen(
         initialFirstVisibleItemIndex = state.gridScrollIndexFor(MediaFilter.VIDEOS),
         initialFirstVisibleItemScrollOffset = state.gridScrollOffsetFor(MediaFilter.VIDEOS),
     )
+    val gridStateFavorites = rememberLazyGridState(
+        initialFirstVisibleItemIndex = state.gridScrollFavoritesIndex,
+        initialFirstVisibleItemScrollOffset = state.gridScrollFavoritesOffset,
+    )
+
+    LaunchedEffect(state.pendingGridScrollRestore) {
+        val target = state.pendingGridScrollRestore ?: return@LaunchedEffect
+        val gridState = when {
+            target.favoritesMode -> gridStateFavorites
+            target.filter == MediaFilter.ALL -> gridStateAll
+            target.filter == MediaFilter.IMAGES -> gridStateImages
+            else -> gridStateVideos
+        }
+        gridState.scrollToItem(target.rowIndex, target.scrollOffset)
+        viewModel.clearPendingGridScrollRestore()
+    }
 
     Column(
         modifier = Modifier
@@ -219,6 +244,8 @@ fun GalleryScreen(
             onOpenStorage = viewModel::openStorageDialog,
             galleryGridVisible = state.galleryGridVisible,
             onToggleGalleryGridVisible = viewModel::toggleGalleryGridVisible,
+            favoritesVisible = state.favoritesVisible,
+            onToggleFavorites = viewModel::toggleFavoritesScreen,
         )
 
         GallerySearchBar(
@@ -229,23 +256,39 @@ fun GalleryScreen(
             onClose = { showSearch = false },
         )
 
-        FilterTabs(
-            pagerPosition = pagerPosition,
-            onSelected = { filter ->
-                viewModel.setFilter(filter)
-                scope.launch {
-                    filterPagerState.animateScrollToPage(
-                        page = tabFilters.indexOf(filter).coerceAtLeast(0),
-                        animationSpec = tween(durationMillis = 180),
-                    )
-                }
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-        )
+        if (state.favoritesVisible) {
+            Text(
+                text = "Favorites",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary,
+            )
+        } else {
+            FilterTabs(
+                pagerPosition = pagerPosition,
+                onSelected = { filter ->
+                    viewModel.setFilter(filter)
+                    scope.launch {
+                        filterPagerState.animateScrollToPage(
+                            page = tabFilters.indexOf(filter).coerceAtLeast(0),
+                            animationSpec = tween(durationMillis = 180),
+                        )
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+        }
 
         Box(modifier = Modifier.fillMaxSize()) {
+            FavoriteBurstOverlay(
+                playNonce = state.favoriteBurstNonce,
+                modifier = Modifier.zIndex(30f),
+            )
             val gridFadeMillis = 2_500
             androidx.compose.animation.AnimatedVisibility(
                 visible = state.galleryGridVisible,
@@ -277,6 +320,30 @@ fun GalleryScreen(
                                 },
                             )
                         }
+                        state.favoritesVisible -> {
+                            GalleryFilterPage(
+                                pageFilter = MediaFilter.ALL,
+                                rows = rowsFavorites,
+                                gridState = gridStateFavorites,
+                                gridColumns = state.gridColumns,
+                                searchQuery = state.searchQuery,
+                                selectedIds = state.selectedIds,
+                                selectionMode = state.selectionMode,
+                                favoriteIds = state.favoriteIds,
+                                removingFavoriteMediaId = state.favoriteRemoveAnimMediaId,
+                                favoritesMode = true,
+                                swipeSelectScope = scope,
+                                onSwipeSelectMedia = viewModel::onSwipeSelectMedia,
+                                onSwipeSelectFinished = viewModel::onSwipeSelectFinished,
+                                onOpenMedia = onOpenMedia,
+                                onToggleSelection = viewModel::toggleSelection,
+                                onBeginSelection = viewModel::beginSelection,
+                                onSaveGridScroll = viewModel::saveGridScroll,
+                                onSaveFavoritesGridScroll = viewModel::saveFavoritesGridScroll,
+                                onAddFavorite = viewModel::addFavorite,
+                                onRemoveFavorite = { viewModel.removeFavorite(it, animate = true) },
+                            )
+                        }
                         else -> {
                             HorizontalPager(
                                 state = filterPagerState,
@@ -304,6 +371,9 @@ fun GalleryScreen(
                                     searchQuery = state.searchQuery,
                                     selectedIds = state.selectedIds,
                                     selectionMode = state.selectionMode,
+                                    favoriteIds = state.favoriteIds,
+                                    removingFavoriteMediaId = state.favoriteRemoveAnimMediaId,
+                                    favoritesMode = false,
                                     swipeSelectScope = scope,
                                     onSwipeSelectMedia = viewModel::onSwipeSelectMedia,
                                     onSwipeSelectFinished = viewModel::onSwipeSelectFinished,
@@ -311,15 +381,19 @@ fun GalleryScreen(
                                     onToggleSelection = viewModel::toggleSelection,
                                     onBeginSelection = viewModel::beginSelection,
                                     onSaveGridScroll = viewModel::saveGridScroll,
+                                    onSaveFavoritesGridScroll = viewModel::saveFavoritesGridScroll,
+                                    onAddFavorite = viewModel::addFavorite,
+                                    onRemoveFavorite = { viewModel.removeFavorite(it, animate = true) },
                                 )
                             }
                         }
                     }
 
-                    val activeGridState = when (state.filter) {
-                        MediaFilter.ALL -> gridStateAll
-                        MediaFilter.IMAGES -> gridStateImages
-                        MediaFilter.VIDEOS -> gridStateVideos
+                    val activeGridState = when {
+                        state.favoritesVisible -> gridStateFavorites
+                        state.filter == MediaFilter.ALL -> gridStateAll
+                        state.filter == MediaFilter.IMAGES -> gridStateImages
+                        else -> gridStateVideos
                     }
                     if (state.gridRows.isNotEmpty() && state.viewerMediaId == null) {
                         Column(
@@ -377,6 +451,8 @@ private fun GalleryTopBar(
     onOpenStorage: () -> Unit,
     galleryGridVisible: Boolean,
     onToggleGalleryGridVisible: () -> Unit,
+    favoritesVisible: Boolean,
+    onToggleFavorites: () -> Unit,
 ) {
     var showSortPicker by remember { mutableStateOf(false) }
 
@@ -451,6 +527,16 @@ private fun GalleryTopBar(
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                IconButton(
+                    onClick = onToggleFavorites,
+                    colors = AuraIconDefaults.iconButtonColors(),
+                ) {
+                    Icon(
+                        imageVector = if (favoritesVisible) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                        contentDescription = if (favoritesVisible) "Close favorites" else "Favorites",
+                        tint = if (favoritesVisible) Color(0xFFFF5252) else TextPrimary,
+                    )
+                }
                 IconButton(
                     onClick = onToggleGalleryGridVisible,
                     colors = AuraIconDefaults.iconButtonColors(),

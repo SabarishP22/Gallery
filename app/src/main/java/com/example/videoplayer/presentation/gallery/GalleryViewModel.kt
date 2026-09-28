@@ -8,6 +8,7 @@ import com.example.videoplayer.domain.model.GalleryMedia
 import com.example.videoplayer.domain.model.MediaFilter
 import com.example.videoplayer.domain.model.SortOrder
 import com.example.videoplayer.domain.model.TrashDeleteRequest
+import com.example.videoplayer.domain.model.ViewerListContext
 import com.example.videoplayer.domain.usecase.FilterAndSortMediaUseCase
 import com.example.videoplayer.domain.usecase.GetStorageStatsUseCase
 import com.example.videoplayer.domain.usecase.TrashMediaUseCase
@@ -36,6 +37,7 @@ class GalleryViewModel(
     private val getStorageStatsUseCase: GetStorageStatsUseCase = appContainer.getStorageStatsUseCase
     private val filterAndSortMediaUseCase: FilterAndSortMediaUseCase =
         appContainer.filterAndSortMediaUseCase()
+    private val favoritesRepository = appContainer.favoritesRepository
 
     private var swipeSelectAdding: Boolean? = null
     private val swipeVisitedIds = mutableSetOf<Long>()
@@ -63,6 +65,12 @@ class GalleryViewModel(
                     lastSyncedWallpaperUri = settings.imageUri
                     appContainer.syncWallpaperLauncherUseCase(settings.imageUri)
                 }
+            }
+        }
+        viewModelScope.launch {
+            favoritesRepository.observeFavoriteIds().collect { ids ->
+                _uiState.update { it.copy(favoriteIds = ids) }
+                scheduleRecomputeFilters()
             }
         }
     }
@@ -123,6 +131,72 @@ class GalleryViewModel(
         }
     }
 
+    fun saveFavoritesGridScroll(index: Int, offset: Int) {
+        _uiState.update {
+            it.copy(
+                gridScrollFavoritesIndex = index,
+                gridScrollFavoritesOffset = offset,
+            )
+        }
+    }
+
+    fun clearPendingGridScrollRestore() {
+        _uiState.update { it.copy(pendingGridScrollRestore = null) }
+    }
+
+    fun toggleFavoritesScreen() {
+        _uiState.update { state ->
+            if (state.favoritesVisible) {
+                state.copy(
+                    favoritesVisible = false,
+                    filter = state.filterBeforeFavorites,
+                )
+            } else {
+                state.copy(
+                    favoritesVisible = true,
+                    filterBeforeFavorites = state.filter,
+                )
+            }
+        }
+    }
+
+    fun addFavorite(mediaId: Long) {
+        if (mediaId in _uiState.value.favoriteIds) return
+        viewModelScope.launch {
+            favoritesRepository.addFavorite(mediaId)
+            _uiState.update {
+                it.copy(favoriteBurstNonce = System.nanoTime())
+            }
+            publishSnackbar("Added to favorites")
+        }
+    }
+
+    fun removeFavorite(mediaId: Long, animate: Boolean = true) {
+        viewModelScope.launch {
+            if (animate) {
+                _uiState.update { it.copy(favoriteRemoveAnimMediaId = mediaId) }
+                delay(280)
+            }
+            favoritesRepository.removeFavorite(mediaId)
+            _uiState.update { it.copy(favoriteRemoveAnimMediaId = null) }
+            if (animate) {
+                publishSnackbar("Removed from favorites")
+            }
+        }
+    }
+
+    fun toggleFavoriteFromViewer(mediaId: Long) {
+        viewModelScope.launch {
+            val nowFavorite = favoritesRepository.toggleFavorite(mediaId)
+            if (nowFavorite) {
+                _uiState.update { it.copy(favoriteBurstNonce = System.nanoTime()) }
+                publishSnackbar("Added to favorites")
+            } else {
+                publishSnackbar("Removed from favorites")
+            }
+        }
+    }
+
     private fun loadMedia(showFullScreenLoading: Boolean) {
         viewModelScope.launch {
             val showBlockingLoader = showFullScreenLoading && _uiState.value.allMedia.isEmpty()
@@ -173,6 +247,8 @@ class GalleryViewModel(
                         gridRowsAll = emptyList(),
                         gridRowsImages = emptyList(),
                         gridRowsVideos = emptyList(),
+                        gridRowsFavorites = emptyList(),
+                        displayItemsFavorites = emptyList(),
                         isSearchFiltering = false,
                     )
                 }
@@ -195,26 +271,33 @@ class GalleryViewModel(
         val itemsAll = filterAndSortMediaUseCase(media, MediaFilter.ALL, query, sort)
         val itemsImages = filterAndSortMediaUseCase(media, MediaFilter.IMAGES, query, sort)
         val itemsVideos = filterAndSortMediaUseCase(media, MediaFilter.VIDEOS, query, sort)
+        val favoriteMedia = media.filter { it.id in state.favoriteIds }
+        val itemsFavorites = filterAndSortMediaUseCase(favoriteMedia, MediaFilter.ALL, query, sort)
         val rowsAll = buildGalleryGridRows(itemsAll, sort)
         val rowsImages = buildGalleryGridRows(itemsImages, sort)
         val rowsVideos = buildGalleryGridRows(itemsVideos, sort)
-        val activeRows = when (state.filter) {
-            MediaFilter.ALL -> rowsAll
-            MediaFilter.IMAGES -> rowsImages
-            MediaFilter.VIDEOS -> rowsVideos
+        val rowsFavorites = buildGalleryGridRows(itemsFavorites, sort)
+        val activeRows = when {
+            state.favoritesVisible -> rowsFavorites
+            state.filter == MediaFilter.ALL -> rowsAll
+            state.filter == MediaFilter.IMAGES -> rowsImages
+            else -> rowsVideos
         }
-        val activeItems = when (state.filter) {
-            MediaFilter.ALL -> itemsAll
-            MediaFilter.IMAGES -> itemsImages
-            MediaFilter.VIDEOS -> itemsVideos
+        val activeItems = when {
+            state.favoritesVisible -> itemsFavorites
+            state.filter == MediaFilter.ALL -> itemsAll
+            state.filter == MediaFilter.IMAGES -> itemsImages
+            else -> itemsVideos
         }
         return state.copy(
             displayItemsAll = itemsAll,
             displayItemsImages = itemsImages,
             displayItemsVideos = itemsVideos,
+            displayItemsFavorites = itemsFavorites,
             gridRowsAll = rowsAll,
             gridRowsImages = rowsImages,
             gridRowsVideos = rowsVideos,
+            gridRowsFavorites = rowsFavorites,
             displayItems = activeItems,
             gridRows = activeRows,
         )
@@ -272,11 +355,65 @@ class GalleryViewModel(
     }
 
     fun openMedia(id: Long) {
-        _uiState.update { it.copy(activeMediaId = id, viewerMediaId = id) }
+        _uiState.update { state ->
+            state.copy(
+                activeMediaId = id,
+                viewerMediaId = id,
+                viewerListContext = if (state.favoritesVisible) {
+                    ViewerListContext.Favorites
+                } else {
+                    ViewerListContext.Tab(state.filter)
+                },
+            )
+        }
+    }
+
+    fun onViewerPageChanged(mediaId: Long) {
+        _uiState.update { it.copy(viewerMediaId = mediaId) }
     }
 
     fun closeViewer() {
-        _uiState.update { it.copy(activeMediaId = null, viewerMediaId = null) }
+        val state = _uiState.value
+        val mediaId = state.viewerMediaId
+        if (mediaId == null) {
+            _uiState.update { it.copy(activeMediaId = null) }
+            return
+        }
+        val rows = if (state.favoritesVisible) state.gridRowsFavorites else state.gridRowsFor(state.filter)
+        val rowIndex = rows.indexOfFirst { row ->
+            row is GalleryGridRow.Cell && row.media.id == mediaId
+        }.coerceAtLeast(0)
+        val restore = GridScrollRestore(
+            rowIndex = rowIndex,
+            scrollOffset = 0,
+            filter = state.filter,
+            favoritesMode = state.favoritesVisible,
+        )
+        _uiState.update { current ->
+            val base = current.copy(
+                activeMediaId = null,
+                viewerMediaId = null,
+                pendingGridScrollRestore = restore,
+            )
+            when {
+                current.favoritesVisible -> base.copy(
+                    gridScrollFavoritesIndex = rowIndex,
+                    gridScrollFavoritesOffset = 0,
+                )
+                current.filter == MediaFilter.ALL -> base.copy(
+                    gridScrollAllIndex = rowIndex,
+                    gridScrollAllOffset = 0,
+                )
+                current.filter == MediaFilter.IMAGES -> base.copy(
+                    gridScrollImagesIndex = rowIndex,
+                    gridScrollImagesOffset = 0,
+                )
+                else -> base.copy(
+                    gridScrollVideosIndex = rowIndex,
+                    gridScrollVideosOffset = 0,
+                )
+            }
+        }
     }
 
     fun clearActiveMedia() {
@@ -545,10 +682,11 @@ class GalleryViewModel(
         val state = _uiState.value
         return getViewerPagerMediaUseCase(
             allMedia = state.allMedia,
-            filter = state.filter,
+            listContext = state.viewerListContext,
             searchQuery = state.searchQuery,
             sortOrder = state.sortOrder,
             currentMediaId = currentId,
+            favoriteIds = state.favoriteIds,
         )
     }
 }

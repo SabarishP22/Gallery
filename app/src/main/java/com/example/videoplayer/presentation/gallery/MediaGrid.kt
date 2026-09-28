@@ -18,11 +18,15 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,6 +41,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.size
 import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
 import coil.request.ImageRequest
@@ -57,8 +62,11 @@ fun MediaGrid(
     gridState: LazyGridState,
     selectedIds: Set<Long>,
     selectionMode: Boolean,
+    favoriteIds: Set<Long>,
+    removingFavoriteMediaId: Long?,
     onClick: (GalleryMedia) -> Unit,
     onLongClick: (GalleryMedia) -> Unit,
+    onDoubleClick: (GalleryMedia) -> Unit,
     swipeSelectScope: CoroutineScope,
     onSwipeSelectMedia: (Long, Boolean) -> Unit,
     onSwipeSelectFinished: () -> Unit,
@@ -111,9 +119,12 @@ fun MediaGrid(
                         media = row.media,
                         selected = row.media.id in selectedIds,
                         selectionMode = selectionMode,
+                        isFavorite = row.media.id in favoriteIds,
+                        isRemovingFavorite = row.media.id == removingFavoriteMediaId,
                         gridColumns = columns,
                         onClick = { onClick(row.media) },
                         onLongClick = { onLongClick(row.media) },
+                        onDoubleClick = { onDoubleClick(row.media) },
                     )
                 }
             }
@@ -126,10 +137,23 @@ private fun MediaGridItem(
     media: GalleryMedia,
     selected: Boolean,
     selectionMode: Boolean,
+    isFavorite: Boolean,
+    isRemovingFavorite: Boolean,
     gridColumns: Int,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
+    onDoubleClick: () -> Unit,
 ) {
+    val cellAlpha by animateFloatAsState(
+        targetValue = if (isRemovingFavorite) 0f else 1f,
+        animationSpec = tween(280),
+        label = "favRemoveAlpha",
+    )
+    val cellScale by animateFloatAsState(
+        targetValue = if (isRemovingFavorite) 0.82f else 1f,
+        animationSpec = tween(280),
+        label = "favRemoveScale",
+    )
     val appContext = LocalContext.current.applicationContext
     val density = LocalDensity.current
     val screenWidthDp = LocalConfiguration.current.screenWidthDp
@@ -145,9 +169,18 @@ private fun MediaGridItem(
     Box(
         modifier = Modifier
             .aspectRatio(1f)
+            .graphicsLayer {
+                alpha = cellAlpha
+                scaleX = cellScale
+                scaleY = cellScale
+            }
             .clip(RoundedCornerShape(12.dp))
             .background(DeepSpace)
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick,
+                onDoubleClick = onDoubleClick,
+            ),
     ) {
         GridCellThumbnail(
             request = request,
@@ -155,6 +188,17 @@ private fun MediaGridItem(
         )
         if (media.isVideo) {
             MediaGridVideoOverlay(media = media)
+        }
+        if (!selectionMode && isFavorite) {
+            Icon(
+                imageVector = Icons.Default.Favorite,
+                contentDescription = null,
+                tint = Color(0xFFFF5252),
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(6.dp)
+                    .size(16.dp),
+            )
         }
         if (selectionMode) {
             MediaGridSelectionOverlay(selected = selected)
