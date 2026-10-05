@@ -45,7 +45,9 @@ data class GalleryUiState(
     val favoriteIds: Set<Long> = emptySet(),
     val favoritesVisible: Boolean = false,
     val filterBeforeFavorites: MediaFilter = MediaFilter.ALL,
+    val favoriteBurstMediaId: Long? = null,
     val favoriteBurstNonce: Long = 0L,
+    val viewerFavoriteBurstNonce: Long = 0L,
     val favoriteRemoveAnimMediaId: Long? = null,
     val wallpaperUri: String? = null,
     val wallpaperBlurDp: Float = 18f,
@@ -59,8 +61,10 @@ data class GalleryUiState(
     val storageStatsError: String? = null,
     val snackbarMessage: String? = null,
     val snackbarEventId: Long = 0L,
+    val snackbarLongDuration: Boolean = false,
     val wallpaperSaveInProgress: Boolean = false,
     val galleryGridVisible: Boolean = true,
+    val immersiveBrowseMode: Boolean = false,
 ) {
     fun gridRowsFor(filter: MediaFilter): List<GalleryGridRow> = when (filter) {
         MediaFilter.ALL -> gridRowsAll

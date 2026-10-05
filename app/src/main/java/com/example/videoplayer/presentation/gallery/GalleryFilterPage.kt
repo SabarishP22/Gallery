@@ -19,6 +19,8 @@ internal fun GalleryFilterPage(
     selectionMode: Boolean,
     favoriteIds: Set<Long>,
     removingFavoriteMediaId: Long?,
+    favoriteBurstMediaId: Long?,
+    favoriteBurstNonce: Long,
     favoritesMode: Boolean,
     swipeSelectScope: CoroutineScope,
     onSwipeSelectMedia: (Long, Boolean) -> Unit,
@@ -73,12 +75,14 @@ internal fun GalleryFilterPage(
             onLongClick = { item -> onBeginSelection(item.id) },
             onDoubleClick = { item ->
                 if (selectionMode) return@MediaGrid
-                if (favoritesMode) {
+                if (item.id in favoriteIds) {
                     onRemoveFavorite(item.id)
                 } else {
                     onAddFavorite(item.id)
                 }
             },
+            favoriteBurstMediaId = favoriteBurstMediaId,
+            favoriteBurstNonce = favoriteBurstNonce,
             swipeSelectScope = swipeSelectScope,
             onSwipeSelectMedia = onSwipeSelectMedia,
             onSwipeSelectFinished = onSwipeSelectFinished,

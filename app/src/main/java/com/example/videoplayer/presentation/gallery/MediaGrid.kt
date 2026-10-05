@@ -46,6 +46,7 @@ import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
 import coil.request.ImageRequest
 import com.example.videoplayer.domain.model.GalleryMedia
+import com.example.videoplayer.presentation.components.FavoriteHeartPop
 import com.example.videoplayer.presentation.theme.AuroraCyan
 import com.example.videoplayer.presentation.theme.DeepSpace
 import com.example.videoplayer.presentation.theme.TextPrimary
@@ -64,6 +65,8 @@ fun MediaGrid(
     selectionMode: Boolean,
     favoriteIds: Set<Long>,
     removingFavoriteMediaId: Long?,
+    favoriteBurstMediaId: Long?,
+    favoriteBurstNonce: Long,
     onClick: (GalleryMedia) -> Unit,
     onLongClick: (GalleryMedia) -> Unit,
     onDoubleClick: (GalleryMedia) -> Unit,
@@ -121,6 +124,8 @@ fun MediaGrid(
                         selectionMode = selectionMode,
                         isFavorite = row.media.id in favoriteIds,
                         isRemovingFavorite = row.media.id == removingFavoriteMediaId,
+                        showFavoriteBurst = row.media.id == favoriteBurstMediaId,
+                        favoriteBurstNonce = favoriteBurstNonce,
                         gridColumns = columns,
                         onClick = { onClick(row.media) },
                         onLongClick = { onLongClick(row.media) },
@@ -139,6 +144,8 @@ private fun MediaGridItem(
     selectionMode: Boolean,
     isFavorite: Boolean,
     isRemovingFavorite: Boolean,
+    showFavoriteBurst: Boolean,
+    favoriteBurstNonce: Long,
     gridColumns: Int,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
@@ -188,6 +195,12 @@ private fun MediaGridItem(
         )
         if (media.isVideo) {
             MediaGridVideoOverlay(media = media)
+        }
+        if (showFavoriteBurst) {
+            FavoriteHeartPop(
+                playKey = favoriteBurstNonce,
+                modifier = Modifier.fillMaxSize(),
+            )
         }
         if (!selectionMode && isFavorite) {
             Icon(

@@ -36,7 +36,11 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.PhotoLibrary
-import com.example.videoplayer.presentation.components.FavoriteBurstOverlay
+import androidx.compose.material.icons.rounded.ViewCarousel
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -135,8 +139,12 @@ fun GalleryScreen(
         viewModel.clearSelection()
     }
 
-    BackHandler(enabled = state.favoritesVisible && !state.selectionMode) {
+    BackHandler(enabled = state.favoritesVisible && !state.selectionMode && state.viewerMediaId == null) {
         viewModel.toggleFavoritesScreen()
+    }
+
+    BackHandler(enabled = state.immersiveBrowseMode && !state.selectionMode && state.viewerMediaId == null) {
+        viewModel.toggleImmersiveBrowseMode()
     }
 
     val trashLauncher = rememberLauncherForActivityResult(
@@ -215,8 +223,23 @@ fun GalleryScreen(
             target.filter == MediaFilter.IMAGES -> gridStateImages
             else -> gridStateVideos
         }
-        gridState.scrollToItem(target.rowIndex, target.scrollOffset)
-        viewModel.clearPendingGridScrollRestore()
+        val closingViewer = state.viewerMediaId != null
+        if (closingViewer) {
+            gridState.scrollToItem(target.rowIndex, target.scrollOffset)
+            viewModel.completeViewerDismissAfterScroll()
+        } else {
+            val distance = kotlin.math.abs(
+                gridState.firstVisibleItemIndex - target.rowIndex,
+            )
+            if (distance <= 12) {
+                gridState.animateScrollToItem(target.rowIndex, target.scrollOffset)
+            } else {
+                val leadIndex = (target.rowIndex - 4).coerceAtLeast(0)
+                gridState.scrollToItem(leadIndex, 0)
+                gridState.animateScrollToItem(target.rowIndex, target.scrollOffset)
+            }
+            viewModel.clearPendingGridScrollRestore()
+        }
     }
 
     Column(
@@ -246,6 +269,8 @@ fun GalleryScreen(
             onToggleGalleryGridVisible = viewModel::toggleGalleryGridVisible,
             favoritesVisible = state.favoritesVisible,
             onToggleFavorites = viewModel::toggleFavoritesScreen,
+            immersiveBrowseMode = state.immersiveBrowseMode,
+            onToggleImmersiveBrowse = viewModel::toggleImmersiveBrowseMode,
         )
 
         GallerySearchBar(
@@ -256,39 +281,163 @@ fun GalleryScreen(
             onClose = { showSearch = false },
         )
 
-        if (state.favoritesVisible) {
-            Text(
-                text = "Favorites",
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = TextPrimary,
-            )
-        } else {
-            FilterTabs(
-                pagerPosition = pagerPosition,
-                onSelected = { filter ->
-                    viewModel.setFilter(filter)
-                    scope.launch {
-                        filterPagerState.animateScrollToPage(
-                            page = tabFilters.indexOf(filter).coerceAtLeast(0),
-                            animationSpec = tween(durationMillis = 180),
-                        )
-                    }
+        if (!state.immersiveBrowseMode) {
+            AnimatedContent(
+                targetState = state.favoritesVisible,
+                transitionSpec = {
+                    val enterOffset = if (targetState) 1 else -1
+                    val exitOffset = if (targetState) -1 else 1
+                    (fadeIn(tween(280)) + slideInHorizontally(tween(280)) { enterOffset * it / 3 })
+                        .togetherWith(fadeOut(tween(220)) + slideOutHorizontally(tween(220)) { exitOffset * it / 3 })
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-            )
+                label = "galleryHomeFavoritesNav",
+            ) { favoritesVisible ->
+                if (favoritesVisible) {
+                    Text(
+                        text = "Favorites",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 12.dp),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = TextPrimary,
+                    )
+                } else {
+                    FilterTabs(
+                        pagerPosition = pagerPosition,
+                        onSelected = { filter ->
+                            viewModel.setFilter(filter)
+                            scope.launch {
+                                filterPagerState.animateScrollToPage(
+                                    page = tabFilters.indexOf(filter).coerceAtLeast(0),
+                                    animationSpec = tween(durationMillis = 180),
+                                )
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                }
+            }
         }
 
         Box(modifier = Modifier.fillMaxSize()) {
-            FavoriteBurstOverlay(
-                playNonce = state.favoriteBurstNonce,
-                modifier = Modifier.zIndex(30f),
-            )
+            AnimatedContent(
+                targetState = state.immersiveBrowseMode,
+                transitionSpec = {
+                    (fadeIn(tween(320)) + slideInHorizontally(tween(320)) { if (targetState) it / 4 else -it / 4 })
+                        .togetherWith(fadeOut(tween(240)) + slideOutHorizontally(tween(240)) { if (targetState) -it / 4 else it / 4 })
+                },
+                label = "galleryBrowseMode",
+                modifier = Modifier.fillMaxSize(),
+            ) { immersiveBrowse ->
+                if (immersiveBrowse) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
+                        ) {
+                            when {
+                                state.isLoading && state.allMedia.isEmpty() -> {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.align(Alignment.Center),
+                                        color = AuroraCyan,
+                                    )
+                                }
+                                state.allMedia.isEmpty() -> {
+                                    EmptyState(
+                                        modifier = Modifier.align(Alignment.Center),
+                                        message = "No media found on this device.",
+                                    )
+                                }
+                                else -> {
+                                    HorizontalPager(
+                                        state = filterPagerState,
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .graphicsLayer { clip = false },
+                                        beyondViewportPageCount = 1,
+                                        userScrollEnabled = false,
+                                        flingBehavior = pagerFling,
+                                        key = { page -> "immersive_${tabFilters[page].name}" },
+                                    ) { page ->
+                                        val filter = tabFilters[page]
+                                        ImmersiveMediaCarousel(
+                                            items = state.displayItemsFor(filter),
+                                            filterKey = filter,
+                                            onOpenMedia = { media -> onOpenMedia(media.id) },
+                                            modifier = Modifier.fillMaxSize(),
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        ImmersiveBrowseBottomBar(
+                            pagerPosition = pagerPosition,
+                            onSelected = { filter ->
+                                viewModel.setFilter(filter)
+                                scope.launch {
+                                    filterPagerState.animateScrollToPage(
+                                        page = tabFilters.indexOf(filter).coerceAtLeast(0),
+                                        animationSpec = spring(
+                                            dampingRatio = Spring.DampingRatioNoBouncy,
+                                            stiffness = Spring.StiffnessMediumLow,
+                                        ),
+                                    )
+                                }
+                            },
+                        )
+                    }
+                } else {
+                    ImmersiveGridPlaceholder(
+                        state = state,
+                        tabFilters = tabFilters,
+                        filterPagerState = filterPagerState,
+                        rowsAll = rowsAll,
+                        rowsImages = rowsImages,
+                        rowsVideos = rowsVideos,
+                        rowsFavorites = rowsFavorites,
+                        gridStateAll = gridStateAll,
+                        gridStateImages = gridStateImages,
+                        gridStateVideos = gridStateVideos,
+                        gridStateFavorites = gridStateFavorites,
+                        scope = scope,
+                        viewModel = viewModel,
+                        onOpenMedia = onOpenMedia,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ImmersiveGridPlaceholder(
+    state: GalleryUiState,
+    tabFilters: List<MediaFilter>,
+    filterPagerState: androidx.compose.foundation.pager.PagerState,
+    rowsAll: List<GalleryGridRow>,
+    rowsImages: List<GalleryGridRow>,
+    rowsVideos: List<GalleryGridRow>,
+    rowsFavorites: List<GalleryGridRow>,
+    gridStateAll: androidx.compose.foundation.lazy.grid.LazyGridState,
+    gridStateImages: androidx.compose.foundation.lazy.grid.LazyGridState,
+    gridStateVideos: androidx.compose.foundation.lazy.grid.LazyGridState,
+    gridStateFavorites: androidx.compose.foundation.lazy.grid.LazyGridState,
+    scope: kotlinx.coroutines.CoroutineScope,
+    viewModel: GalleryViewModel,
+    onOpenMedia: (Long) -> Unit,
+) {
+    val pagerFling = PagerDefaults.flingBehavior(
+        state = filterPagerState,
+        snapAnimationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow,
+        ),
+    )
+        Box(modifier = Modifier.fillMaxSize()) {
             val gridFadeMillis = 2_500
             androidx.compose.animation.AnimatedVisibility(
                 visible = state.galleryGridVisible,
@@ -331,6 +480,8 @@ fun GalleryScreen(
                                 selectionMode = state.selectionMode,
                                 favoriteIds = state.favoriteIds,
                                 removingFavoriteMediaId = state.favoriteRemoveAnimMediaId,
+                                favoriteBurstMediaId = state.favoriteBurstMediaId,
+                                favoriteBurstNonce = state.favoriteBurstNonce,
                                 favoritesMode = true,
                                 swipeSelectScope = scope,
                                 onSwipeSelectMedia = viewModel::onSwipeSelectMedia,
@@ -341,7 +492,9 @@ fun GalleryScreen(
                                 onSaveGridScroll = viewModel::saveGridScroll,
                                 onSaveFavoritesGridScroll = viewModel::saveFavoritesGridScroll,
                                 onAddFavorite = viewModel::addFavorite,
-                                onRemoveFavorite = { viewModel.removeFavorite(it, animate = true) },
+                                onRemoveFavorite = {
+                                    viewModel.removeFavorite(it, animateGridRemoval = true)
+                                },
                             )
                         }
                         else -> {
@@ -373,6 +526,8 @@ fun GalleryScreen(
                                     selectionMode = state.selectionMode,
                                     favoriteIds = state.favoriteIds,
                                     removingFavoriteMediaId = state.favoriteRemoveAnimMediaId,
+                                    favoriteBurstMediaId = state.favoriteBurstMediaId,
+                                    favoriteBurstNonce = state.favoriteBurstNonce,
                                     favoritesMode = false,
                                     swipeSelectScope = scope,
                                     onSwipeSelectMedia = viewModel::onSwipeSelectMedia,
@@ -383,7 +538,9 @@ fun GalleryScreen(
                                     onSaveGridScroll = viewModel::saveGridScroll,
                                     onSaveFavoritesGridScroll = viewModel::saveFavoritesGridScroll,
                                     onAddFavorite = viewModel::addFavorite,
-                                    onRemoveFavorite = { viewModel.removeFavorite(it, animate = true) },
+                                    onRemoveFavorite = {
+                                        viewModel.removeFavorite(it, animateGridRemoval = false)
+                                    },
                                 )
                             }
                         }
@@ -429,7 +586,6 @@ fun GalleryScreen(
                 }
             }
         }
-    }
 }
 
 @Composable
@@ -453,6 +609,8 @@ private fun GalleryTopBar(
     onToggleGalleryGridVisible: () -> Unit,
     favoritesVisible: Boolean,
     onToggleFavorites: () -> Unit,
+    immersiveBrowseMode: Boolean,
+    onToggleImmersiveBrowse: () -> Unit,
 ) {
     var showSortPicker by remember { mutableStateOf(false) }
 
@@ -528,7 +686,22 @@ private fun GalleryTopBar(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(
+                    onClick = onToggleImmersiveBrowse,
+                    colors = AuraIconDefaults.iconButtonColors(),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.ViewCarousel,
+                        contentDescription = if (immersiveBrowseMode) {
+                            "Exit carousel browse"
+                        } else {
+                            "Carousel browse"
+                        },
+                        tint = if (immersiveBrowseMode) AuroraCyan else TextPrimary,
+                    )
+                }
+                IconButton(
                     onClick = onToggleFavorites,
+                    enabled = !immersiveBrowseMode,
                     colors = AuraIconDefaults.iconButtonColors(),
                 ) {
                     Icon(

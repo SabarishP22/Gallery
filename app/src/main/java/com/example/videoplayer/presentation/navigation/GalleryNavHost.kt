@@ -49,7 +49,11 @@ fun GalleryNavHost(
         val host = if (viewerId != null) overlaySnackbarHostState else gallerySnackbarHostState
         host.showSnackbar(
             message = message,
-            duration = SnackbarDuration.Short,
+            duration = if (state.snackbarLongDuration) {
+                SnackbarDuration.Long
+            } else {
+                SnackbarDuration.Short
+            },
         )
         viewModel.clearSnackbarMessage()
     }
@@ -90,7 +94,7 @@ fun GalleryNavHost(
                                 items = items,
                                 startIndex = index,
                                 favoriteIds = state.favoriteIds,
-                                favoriteBurstNonce = state.favoriteBurstNonce,
+                                viewerFavoriteBurstNonce = state.viewerFavoriteBurstNonce,
                                 onBack = { viewModel.closeViewer() },
                                 onCurrentMediaChanged = viewModel::onViewerPageChanged,
                                 onToggleFavorite = { media -> viewModel.toggleFavoriteFromViewer(media.id) },

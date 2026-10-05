@@ -144,6 +144,16 @@ class GalleryViewModel(
         _uiState.update { it.copy(pendingGridScrollRestore = null) }
     }
 
+    fun completeViewerDismissAfterScroll() {
+        _uiState.update {
+            it.copy(
+                activeMediaId = null,
+                viewerMediaId = null,
+                pendingGridScrollRestore = null,
+            )
+        }
+    }
+
     fun toggleFavoritesScreen() {
         _uiState.update { state ->
             if (state.favoritesVisible) {
@@ -164,24 +174,57 @@ class GalleryViewModel(
         if (mediaId in _uiState.value.favoriteIds) return
         viewModelScope.launch {
             favoritesRepository.addFavorite(mediaId)
-            _uiState.update {
-                it.copy(favoriteBurstNonce = System.nanoTime())
-            }
-            publishSnackbar("Added to favorites")
+            triggerGridFavoriteBurst(mediaId)
         }
     }
 
-    fun removeFavorite(mediaId: Long, animate: Boolean = true) {
+    private fun triggerGridFavoriteBurst(mediaId: Long) {
+        val nonce = System.nanoTime()
+        _uiState.update {
+            it.copy(
+                favoriteBurstMediaId = mediaId,
+                favoriteBurstNonce = nonce,
+            )
+        }
         viewModelScope.launch {
-            if (animate) {
+            delay(2_200)
+            _uiState.update { state ->
+                if (state.favoriteBurstMediaId == mediaId) {
+                    state.copy(
+                        favoriteBurstMediaId = null,
+                        favoriteBurstNonce = 0L,
+                    )
+                } else {
+                    state
+                }
+            }
+        }
+    }
+
+    private fun triggerViewerFavoriteBurst() {
+        val nonce = System.nanoTime()
+        _uiState.update { it.copy(viewerFavoriteBurstNonce = nonce) }
+        viewModelScope.launch {
+            delay(2_200)
+            _uiState.update { state ->
+                if (state.viewerFavoriteBurstNonce == nonce) {
+                    state.copy(viewerFavoriteBurstNonce = 0L)
+                } else {
+                    state
+                }
+            }
+        }
+    }
+
+    fun removeFavorite(mediaId: Long, animateGridRemoval: Boolean = true) {
+        viewModelScope.launch {
+            if (animateGridRemoval) {
                 _uiState.update { it.copy(favoriteRemoveAnimMediaId = mediaId) }
                 delay(280)
             }
             favoritesRepository.removeFavorite(mediaId)
             _uiState.update { it.copy(favoriteRemoveAnimMediaId = null) }
-            if (animate) {
-                publishSnackbar("Removed from favorites")
-            }
+            publishSnackbar("Removed from favorites", longDuration = true)
         }
     }
 
@@ -189,10 +232,9 @@ class GalleryViewModel(
         viewModelScope.launch {
             val nowFavorite = favoritesRepository.toggleFavorite(mediaId)
             if (nowFavorite) {
-                _uiState.update { it.copy(favoriteBurstNonce = System.nanoTime()) }
-                publishSnackbar("Added to favorites")
+                triggerViewerFavoriteBurst()
             } else {
-                publishSnackbar("Removed from favorites")
+                publishSnackbar("Removed from favorites", longDuration = true)
             }
         }
     }
@@ -338,6 +380,26 @@ class GalleryViewModel(
         _uiState.update { it.copy(galleryGridVisible = !it.galleryGridVisible) }
     }
 
+    fun toggleImmersiveBrowseMode() {
+        if (_uiState.value.selectionMode) return
+        _uiState.update { state ->
+            if (state.immersiveBrowseMode) {
+                state.copy(immersiveBrowseMode = false)
+            } else {
+                state.copy(
+                    immersiveBrowseMode = true,
+                    favoritesVisible = false,
+                    galleryGridVisible = true,
+                    filter = if (state.favoritesVisible) {
+                        state.filterBeforeFavorites
+                    } else {
+                        state.filter
+                    },
+                )
+            }
+        }
+    }
+
     fun toggleGridColumns() {
         _uiState.update {
             val next = when (it.gridColumns) {
@@ -379,7 +441,11 @@ class GalleryViewModel(
             _uiState.update { it.copy(activeMediaId = null) }
             return
         }
-        val rows = if (state.favoritesVisible) state.gridRowsFavorites else state.gridRowsFor(state.filter)
+        val openedFromFavorites = state.viewerListContext is ViewerListContext.Favorites
+        val rows = when (state.viewerListContext) {
+            ViewerListContext.Favorites -> state.gridRowsFavorites
+            is ViewerListContext.Tab -> state.gridRowsFor(state.viewerListContext.filter)
+        }
         val rowIndex = rows.indexOfFirst { row ->
             row is GalleryGridRow.Cell && row.media.id == mediaId
         }.coerceAtLeast(0)
@@ -387,16 +453,15 @@ class GalleryViewModel(
             rowIndex = rowIndex,
             scrollOffset = 0,
             filter = state.filter,
-            favoritesMode = state.favoritesVisible,
+            favoritesMode = openedFromFavorites,
         )
         _uiState.update { current ->
             val base = current.copy(
-                activeMediaId = null,
-                viewerMediaId = null,
+                favoritesVisible = openedFromFavorites,
                 pendingGridScrollRestore = restore,
             )
             when {
-                current.favoritesVisible -> base.copy(
+                openedFromFavorites -> base.copy(
                     gridScrollFavoritesIndex = rowIndex,
                     gridScrollFavoritesOffset = 0,
                 )
@@ -601,11 +666,12 @@ class GalleryViewModel(
         _uiState.update { it.copy(snackbarMessage = null) }
     }
 
-    private fun publishSnackbar(message: String) {
+    private fun publishSnackbar(message: String, longDuration: Boolean = false) {
         _uiState.update {
             it.copy(
                 snackbarMessage = message,
                 snackbarEventId = it.snackbarEventId + 1L,
+                snackbarLongDuration = longDuration,
             )
         }
     }

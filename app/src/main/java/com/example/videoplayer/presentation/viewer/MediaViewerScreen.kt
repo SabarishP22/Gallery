@@ -44,6 +44,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -60,8 +61,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import androidx.media3.common.MediaItem
@@ -94,7 +97,7 @@ fun MediaViewerScreen(
     items: List<GalleryMedia>,
     startIndex: Int,
     favoriteIds: Set<Long>,
-    favoriteBurstNonce: Long,
+    viewerFavoriteBurstNonce: Long,
     onBack: () -> Unit,
     onCurrentMediaChanged: (Long) -> Unit = {},
     onToggleFavorite: (GalleryMedia) -> Unit = {},
@@ -111,7 +114,7 @@ fun MediaViewerScreen(
     var infoVisible by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val current = items[pagerState.currentPage]
-    var photoZoomed by remember { mutableStateOf(false) }
+    var contentZoomed by remember { mutableStateOf(false) }
 
     val activity = context as? Activity
     ImmersiveViewerSystemBars(enabled = true)
@@ -127,7 +130,7 @@ fun MediaViewerScreen(
             .collect { page ->
                 chromeVisible = false
                 infoVisible = false
-                photoZoomed = false
+                contentZoomed = false
                 onCurrentMediaChanged(items[page.coerceIn(0, items.lastIndex)].id)
             }
     }
@@ -135,6 +138,8 @@ fun MediaViewerScreen(
     LaunchedEffect(Unit) {
         onCurrentMediaChanged(items[safeStart].id)
     }
+
+    BackHandler(onBack = onBack)
 
     Box(
         modifier = Modifier
@@ -145,7 +150,7 @@ fun MediaViewerScreen(
             state = pagerState,
             modifier = Modifier.fillMaxSize(),
             beyondViewportPageCount = 1,
-            userScrollEnabled = !photoZoomed,
+            userScrollEnabled = !contentZoomed,
             key = { page -> items[page].id },
         ) { page ->
             val media = items[page]
@@ -156,12 +161,13 @@ fun MediaViewerScreen(
                     isActive = isActive,
                     onBack = onBack,
                     onChromeVisibleChange = { chromeVisible = it },
+                    onZoomChanged = { zoomed -> if (isActive) contentZoomed = zoomed },
                 )
             } else {
                 ZoomablePhoto(
                     media = media,
                     onToggleChrome = { chromeVisible = !chromeVisible },
-                    onZoomChanged = { zoomed -> if (isActive) photoZoomed = zoomed },
+                    onZoomChanged = { zoomed -> if (isActive) contentZoomed = zoomed },
                     onLongPress = { onWallpaperRequest(media) },
                 )
             }
@@ -256,26 +262,33 @@ fun MediaViewerScreen(
         }
 
         val isFavorite = current.id in favoriteIds
-        IconButton(
-            onClick = { onToggleFavorite(current) },
+        AnimatedVisibility(
+            visible = chromeVisible,
+            enter = fadeIn(),
+            exit = fadeOut(),
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .navigationBarsPadding()
                 .padding(end = 12.dp, bottom = 12.dp)
-                .zIndex(600f)
-                .background(Color.Black.copy(alpha = 0.35f), MaterialTheme.shapes.medium),
+                .zIndex(600f),
         ) {
-            Icon(
-                imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
-                tint = if (isFavorite) Color(0xFFFF5252) else Color.White,
-            )
+            Box(modifier = Modifier.size(56.dp)) {
+                FavoriteBurstOverlay(
+                    playNonce = viewerFavoriteBurstNonce,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                IconButton(
+                    onClick = { onToggleFavorite(current) },
+                    modifier = Modifier.background(Color.Black.copy(alpha = 0.35f), MaterialTheme.shapes.medium),
+                ) {
+                    Icon(
+                        imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                        contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
+                        tint = if (isFavorite) Color(0xFFFF5252) else Color.White,
+                    )
+                }
+            }
         }
-
-        FavoriteBurstOverlay(
-            playNonce = favoriteBurstNonce,
-            modifier = Modifier.zIndex(700f),
-        )
     }
 }
 
@@ -286,8 +299,10 @@ private fun VideoPage(
     isActive: Boolean,
     onBack: () -> Unit,
     onChromeVisibleChange: (Boolean) -> Unit,
+    onZoomChanged: (Boolean) -> Unit,
 ) {
     val context = LocalContext.current
+    val zoomState = rememberZoomTransformState(media.id)
     var controlsVisible by remember(media.id) { mutableStateOf(false) }
     var isPlaying by remember(media.id) { mutableStateOf(false) }
     var durationMs by remember(media.id) { mutableLongStateOf(media.durationMs) }
@@ -334,6 +349,12 @@ private fun VideoPage(
         } else {
             player.pause()
             player.playWhenReady = false
+        }
+    }
+
+    LaunchedEffect(zoomState.isZoomed, isActive) {
+        if (isActive) {
+            onZoomChanged(zoomState.isZoomed)
         }
     }
 
@@ -387,29 +408,50 @@ private fun VideoPage(
         onChromeVisibleChange(true)
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        AndroidView(
-            factory = { ctx ->
-                NonTouchPlayerView(ctx).apply {
-                    layoutParams = FrameLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                    )
-                    useController = false
-                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-                    this.player = player
-                }
-            },
-            modifier = Modifier.fillMaxSize(),
-            update = { it.player = if (isActive) player else null },
-        )
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .onSizeChanged { zoomState.containerSize = it.toSize() },
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .zoomContentTransform(zoomState),
+        ) {
+            AndroidView(
+                factory = { ctx ->
+                    NonTouchPlayerView(ctx).apply {
+                        layoutParams = FrameLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                        )
+                        useController = false
+                        resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                        this.player = player
+                    }
+                },
+                modifier = Modifier.fillMaxSize(),
+                update = { it.player = if (isActive) player else null },
+            )
+        }
 
-        if (isActive && !controlsVisible) {
+        if (isActive) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .zIndex(400f)
-                    .videoViewerTapGestures(media.id, toggleControlsRef, seekOnDoubleTapRef),
+                    .zoomPinchPan(zoomState)
+                    .then(
+                        if (!zoomState.isZoomed && !controlsVisible) {
+                            Modifier.videoViewerTapGestures(
+                                media.id,
+                                toggleControlsRef,
+                                seekOnDoubleTapRef,
+                            )
+                        } else {
+                            Modifier
+                        },
+                    ),
             )
         }
 
@@ -608,7 +650,7 @@ private fun VideoPage(
             modifier = Modifier
                 .fillMaxSize()
                 .zIndex(410f),
-            enabled = isActive,
+            enabled = isActive && !zoomState.isZoomed,
         )
     }
 }
