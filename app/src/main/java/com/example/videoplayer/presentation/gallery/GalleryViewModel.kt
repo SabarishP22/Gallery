@@ -421,11 +421,34 @@ class GalleryViewModel(
             state.copy(
                 activeMediaId = id,
                 viewerMediaId = id,
+                viewerTransitionOrigin = null,
                 viewerListContext = if (state.favoritesVisible) {
                     ViewerListContext.Favorites
                 } else {
                     ViewerListContext.Tab(state.filter)
                 },
+            )
+        }
+    }
+
+    fun openMediaFromImmersive(id: Long, origin: ViewerTransitionOrigin) {
+        _uiState.update { state ->
+            state.copy(
+                activeMediaId = id,
+                viewerMediaId = id,
+                viewerTransitionOrigin = origin,
+                viewerListContext = ViewerListContext.Tab(state.filter),
+            )
+        }
+    }
+
+    fun finishCloseViewer() {
+        _uiState.update {
+            it.copy(
+                activeMediaId = null,
+                viewerMediaId = null,
+                pendingGridScrollRestore = null,
+                viewerTransitionOrigin = null,
             )
         }
     }
@@ -439,6 +462,10 @@ class GalleryViewModel(
         val mediaId = state.viewerMediaId
         if (mediaId == null) {
             _uiState.update { it.copy(activeMediaId = null) }
+            return
+        }
+        if (state.immersiveBrowseMode) {
+            finishCloseViewer()
             return
         }
         val openedFromFavorites = state.viewerListContext is ViewerListContext.Favorites

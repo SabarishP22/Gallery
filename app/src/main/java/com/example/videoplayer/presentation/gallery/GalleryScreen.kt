@@ -15,6 +15,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -135,6 +136,8 @@ fun GalleryScreen(
     var showSearch by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
+    ImmersiveLandscapeOrientationEffect(enabled = state.immersiveBrowseMode)
+
     BackHandler(enabled = state.selectionMode) {
         viewModel.clearSelection()
     }
@@ -247,31 +250,33 @@ fun GalleryScreen(
             .fillMaxSize()
             .statusBarsPadding(),
     ) {
-        GalleryTopBar(
-            selectionMode = state.selectionMode,
-            selectedCount = state.selectedIds.size,
-            searchQuery = state.searchQuery,
-            sortOrder = state.sortOrder,
-            onOpenSearch = { showSearch = true },
-            searchActive = showSearch,
-            onSearchChange = viewModel::setSearchQuery,
-            isRefreshing = state.isRefreshing,
-            onRefresh = viewModel::refreshMedia,
-            onToggleGrid = viewModel::toggleGridColumns,
-            onSortSelected = viewModel::setSortOrder,
-            onClearSelection = viewModel::clearSelection,
-            onDeleteSelection = viewModel::openDeleteConfirm,
-            onShareSelection = {
-                shareMedia(context, state.allMedia.filter { it.id in state.selectedIds })
-            },
-            onOpenStorage = viewModel::openStorageDialog,
-            galleryGridVisible = state.galleryGridVisible,
-            onToggleGalleryGridVisible = viewModel::toggleGalleryGridVisible,
-            favoritesVisible = state.favoritesVisible,
-            onToggleFavorites = viewModel::toggleFavoritesScreen,
-            immersiveBrowseMode = state.immersiveBrowseMode,
-            onToggleImmersiveBrowse = viewModel::toggleImmersiveBrowseMode,
-        )
+        if (!state.immersiveBrowseMode) {
+            GalleryTopBar(
+                selectionMode = state.selectionMode,
+                selectedCount = state.selectedIds.size,
+                searchQuery = state.searchQuery,
+                sortOrder = state.sortOrder,
+                onOpenSearch = { showSearch = true },
+                searchActive = showSearch,
+                onSearchChange = viewModel::setSearchQuery,
+                isRefreshing = state.isRefreshing,
+                onRefresh = viewModel::refreshMedia,
+                onToggleGrid = viewModel::toggleGridColumns,
+                onSortSelected = viewModel::setSortOrder,
+                onClearSelection = viewModel::clearSelection,
+                onDeleteSelection = viewModel::openDeleteConfirm,
+                onShareSelection = {
+                    shareMedia(context, state.allMedia.filter { it.id in state.selectedIds })
+                },
+                onOpenStorage = viewModel::openStorageDialog,
+                galleryGridVisible = state.galleryGridVisible,
+                onToggleGalleryGridVisible = viewModel::toggleGalleryGridVisible,
+                favoritesVisible = state.favoritesVisible,
+                onToggleFavorites = viewModel::toggleFavoritesScreen,
+                immersiveBrowseMode = state.immersiveBrowseMode,
+                onToggleImmersiveBrowse = viewModel::toggleImmersiveBrowseMode,
+            )
+        }
 
         GallerySearchBar(
             visible = showSearch,
@@ -333,11 +338,25 @@ fun GalleryScreen(
                 modifier = Modifier.fillMaxSize(),
             ) { immersiveBrowse ->
                 if (immersiveBrowse) {
-                    Column(modifier = Modifier.fillMaxSize()) {
+                    Row(modifier = Modifier.fillMaxSize()) {
+                        ImmersiveLeftToolRail(
+                            searchActive = showSearch,
+                            searchQuery = state.searchQuery,
+                            sortOrder = state.sortOrder,
+                            isRefreshing = state.isRefreshing,
+                            galleryGridVisible = state.galleryGridVisible,
+                            onOpenSearch = { showSearch = true },
+                            onRefresh = viewModel::refreshMedia,
+                            onToggleGrid = viewModel::toggleGridColumns,
+                            onSortSelected = viewModel::setSortOrder,
+                            onOpenStorage = viewModel::openStorageDialog,
+                            onToggleGalleryGridVisible = viewModel::toggleGalleryGridVisible,
+                            onToggleImmersiveBrowse = viewModel::toggleImmersiveBrowseMode,
+                        )
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .fillMaxWidth(),
+                                .fillMaxHeight(),
                         ) {
                             when {
                                 state.isLoading && state.allMedia.isEmpty() -> {
@@ -367,14 +386,16 @@ fun GalleryScreen(
                                         ImmersiveMediaCarousel(
                                             items = state.displayItemsFor(filter),
                                             filterKey = filter,
-                                            onOpenMedia = { media -> onOpenMedia(media.id) },
+                                            onOpenMedia = { media, origin ->
+                                                viewModel.openMediaFromImmersive(media.id, origin)
+                                            },
                                             modifier = Modifier.fillMaxSize(),
                                         )
                                     }
                                 }
                             }
                         }
-                        ImmersiveBrowseBottomBar(
+                        ImmersiveBrowseSideRail(
                             pagerPosition = pagerPosition,
                             onSelected = { filter ->
                                 viewModel.setFilter(filter)
@@ -705,8 +726,16 @@ private fun GalleryTopBar(
                     colors = AuraIconDefaults.iconButtonColors(),
                 ) {
                     Icon(
-                        imageVector = if (favoritesVisible) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                        contentDescription = if (favoritesVisible) "Close favorites" else "Favorites",
+                        imageVector = if (favoritesVisible) {
+                            Icons.Filled.Favorite
+                        } else {
+                            Icons.Outlined.FavoriteBorder
+                        },
+                        contentDescription = if (favoritesVisible) {
+                            "Close favorites"
+                        } else {
+                            "Favorites"
+                        },
                         tint = if (favoritesVisible) Color(0xFFFF5252) else TextPrimary,
                     )
                 }
@@ -741,7 +770,11 @@ private fun GalleryTopBar(
                     Icon(
                         Icons.Default.Search,
                         contentDescription = "Search",
-                        tint = if (searchActive || searchQuery.isNotEmpty()) AuroraCyan else TextPrimary,
+                        tint = if (searchActive || searchQuery.isNotEmpty()) {
+                            AuroraCyan
+                        } else {
+                            TextPrimary
+                        },
                     )
                 }
                 IconButton(

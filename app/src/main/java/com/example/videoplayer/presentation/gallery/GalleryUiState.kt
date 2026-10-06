@@ -65,6 +65,7 @@ data class GalleryUiState(
     val wallpaperSaveInProgress: Boolean = false,
     val galleryGridVisible: Boolean = true,
     val immersiveBrowseMode: Boolean = false,
+    val viewerTransitionOrigin: ViewerTransitionOrigin? = null,
 ) {
     fun gridRowsFor(filter: MediaFilter): List<GalleryGridRow> = when (filter) {
         MediaFilter.ALL -> gridRowsAll

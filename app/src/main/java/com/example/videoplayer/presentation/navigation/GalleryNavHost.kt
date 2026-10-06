@@ -58,7 +58,7 @@ fun GalleryNavHost(
         viewModel.clearSnackbarMessage()
     }
 
-    BackHandler(enabled = viewerId != null) {
+    BackHandler(enabled = viewerId != null && !state.immersiveBrowseMode) {
         viewModel.closeViewer()
     }
 
@@ -83,23 +83,51 @@ fun GalleryNavHost(
                         onOpenMedia = { id -> viewModel.openMedia(id) },
                     )
                     if (viewerId != null) {
+                        val (items, index) = viewModel.pagerMediaFor(viewerId)
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .zIndex(1f)
-                                .background(Color.Black),
+                                .zIndex(1f),
                         ) {
-                            val (items, index) = viewModel.pagerMediaFor(viewerId)
-                            MediaViewerScreen(
-                                items = items,
-                                startIndex = index,
-                                favoriteIds = state.favoriteIds,
-                                viewerFavoriteBurstNonce = state.viewerFavoriteBurstNonce,
-                                onBack = { viewModel.closeViewer() },
-                                onCurrentMediaChanged = viewModel::onViewerPageChanged,
-                                onToggleFavorite = { media -> viewModel.toggleFavoriteFromViewer(media.id) },
-                                onWallpaperRequest = { media -> viewModel.openWallpaperDialog(media) },
-                            )
+                            if (state.immersiveBrowseMode) {
+                                ViewerTransitionOverlay(
+                                    viewerMediaId = viewerId,
+                                    items = items,
+                                    startIndex = index,
+                                    favoriteIds = state.favoriteIds,
+                                    viewerFavoriteBurstNonce = state.viewerFavoriteBurstNonce,
+                                    transitionOrigin = state.viewerTransitionOrigin,
+                                    onDismissComplete = viewModel::finishCloseViewer,
+                                    onCurrentMediaChanged = viewModel::onViewerPageChanged,
+                                    onToggleFavorite = { media ->
+                                        viewModel.toggleFavoriteFromViewer(media.id)
+                                    },
+                                    onWallpaperRequest = { media ->
+                                        viewModel.openWallpaperDialog(media)
+                                    },
+                                )
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(Color.Black),
+                                ) {
+                                    MediaViewerScreen(
+                                        items = items,
+                                        startIndex = index,
+                                        favoriteIds = state.favoriteIds,
+                                        viewerFavoriteBurstNonce = state.viewerFavoriteBurstNonce,
+                                        onBack = { viewModel.closeViewer() },
+                                        onCurrentMediaChanged = viewModel::onViewerPageChanged,
+                                        onToggleFavorite = { media ->
+                                            viewModel.toggleFavoriteFromViewer(media.id)
+                                        },
+                                        onWallpaperRequest = { media ->
+                                            viewModel.openWallpaperDialog(media)
+                                        },
+                                    )
+                                }
+                            }
                         }
                     }
                 }

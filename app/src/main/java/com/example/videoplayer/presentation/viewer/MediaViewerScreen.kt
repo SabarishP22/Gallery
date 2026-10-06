@@ -102,6 +102,7 @@ fun MediaViewerScreen(
     onCurrentMediaChanged: (Long) -> Unit = {},
     onToggleFavorite: (GalleryMedia) -> Unit = {},
     onWallpaperRequest: (GalleryMedia) -> Unit = {},
+    lockLandscape: Boolean = false,
 ) {
     if (items.isEmpty()) {
         LaunchedEffect(Unit) { onBack() }
@@ -118,10 +119,14 @@ fun MediaViewerScreen(
 
     val activity = context as? Activity
     ImmersiveViewerSystemBars(enabled = true)
-    DisposableEffect(activity) {
-        val controller = activity?.let { ForcedOrientationController(it) }
-        controller?.start()
-        onDispose { controller?.stop() }
+    DisposableEffect(activity, lockLandscape) {
+        if (lockLandscape) {
+            onDispose { }
+        } else {
+            val controller = activity?.let { ForcedOrientationController(it) }
+            controller?.start()
+            onDispose { controller?.stop() }
+        }
     }
 
     LaunchedEffect(pagerState) {

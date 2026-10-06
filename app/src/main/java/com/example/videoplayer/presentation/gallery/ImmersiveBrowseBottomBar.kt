@@ -72,7 +72,6 @@ fun ImmersiveBrowseBottomBar(
     val bubbleOffsetPx = (pagerPosition * (trackWidthPx / tabs.size.coerceAtLeast(1))).roundToInt()
     val activeIndex = pagerPosition.roundToInt().coerceIn(0, tabs.lastIndex)
     val slotWidthPx = if (trackWidthPx > 0) trackWidthPx / tabs.size else 0
-
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -102,32 +101,37 @@ fun ImmersiveBrowseBottomBar(
                         contentAlignment = Alignment.Center,
                     ) {
                         Box(
-                            modifier = Modifier
-                                .size(52.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    brush = Brush.radialGradient(
-                                        colors = listOf(
-                                            AuroraCyan.copy(alpha = 0.5f),
-                                            AuroraViolet.copy(alpha = 0.28f),
-                                            Color.Transparent,
+                            modifier = Modifier.size(44.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(CircleShape)
+                                    .background(
+                                        brush = Brush.radialGradient(
+                                            colors = listOf(
+                                                AuroraCyan.copy(alpha = 0.5f),
+                                                AuroraViolet.copy(alpha = 0.28f),
+                                                Color.Transparent,
+                                            ),
                                         ),
                                     ),
-                                ),
-                        )
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    brush = Brush.linearGradient(
-                                        listOf(
-                                            AuroraCyan.copy(alpha = 0.34f),
-                                            AuroraViolet.copy(alpha = 0.26f),
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        brush = Brush.linearGradient(
+                                            listOf(
+                                                AuroraCyan.copy(alpha = 0.34f),
+                                                AuroraViolet.copy(alpha = 0.26f),
+                                            ),
                                         ),
                                     ),
-                                ),
-                        )
+                            )
+                        }
                     }
                 }
 
@@ -138,7 +142,7 @@ fun ImmersiveBrowseBottomBar(
                     tabs.forEachIndexed { index, tab ->
                         val distance = kotlin.math.abs(pagerPosition - index)
                         val iconScale by animateFloatAsState(
-                            targetValue = if (distance < 0.45f) 1.2f else 0.9f,
+                            targetValue = if (distance < 0.45f) 1.12f else 0.88f,
                             animationSpec = spring(
                                 dampingRatio = Spring.DampingRatioMediumBouncy,
                                 stiffness = Spring.StiffnessMedium,
@@ -161,7 +165,7 @@ fun ImmersiveBrowseBottomBar(
                                 contentDescription = tab.label,
                                 modifier = Modifier
                                     .scale(iconScale)
-                                    .size(26.dp),
+                                    .size(20.dp),
                                 tint = if (isActive) TextPrimary else TextSecondary.copy(alpha = 0.62f),
                             )
                         }
